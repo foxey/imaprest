@@ -2,9 +2,13 @@
 
 Each step targets a separate PR and leaves the application in a runnable, testable state.
 
+**Status legend:** ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
+
 ---
 
 ## Step 1 — Project scaffold + `GET /health`
+
+**Status:** ⬜ not started
 
 **Goal:** a compiling, linting, tested, containerised skeleton with a single live endpoint.
 
@@ -36,6 +40,8 @@ curl http://localhost:3000/health          # → {"status":"ok"}
 
 ## Step 2 — Credential middleware + `GET /mailboxes`
 
+**Status:** ⬜ not started
+
 **Goal:** first real IMAP operation; validates that the credential injection model works end-to-end.
 
 ### Files added / modified
@@ -50,7 +56,10 @@ test/routes/mailboxes.test.ts    # mock ImapFlow
 
 ### Definition of done
 ```bash
-curl -H "X-Mail-User: user@example.com"      -H "X-Mail-Password: secret"      -H "X-IMAP-Host: imap.example.com"      http://localhost:3000/mailboxes
+curl -H "X-Mail-User: user@example.com" \
+     -H "X-Mail-Password: secret" \
+     -H "X-IMAP-Host: imap.example.com" \
+     http://localhost:3000/mailboxes
 # → 200 [{"path":"INBOX","delimiter":"/","flags":[]}, ...]
 
 curl http://localhost:3000/mailboxes      # missing headers
@@ -60,6 +69,8 @@ curl http://localhost:3000/mailboxes      # missing headers
 ---
 
 ## Step 3 — `GET /messages`
+
+**Status:** ⬜ not started
 
 **Goal:** server-side IMAP `SEARCH` with filtering; never loads full message bodies.
 
@@ -80,16 +91,20 @@ test/routes/messages.test.ts
 
 ### Definition of done
 ```bash
-curl -H "..."      "http://localhost:3000/messages?unseen=true&limit=10"
+curl -H "..." \
+     "http://localhost:3000/messages?unseen=true&limit=10"
 # → 200 [{"uid":42,"date":"2026-04-11T...","from":"...","subject":"...","seen":false,"size":1234}, ...]
 
-curl -H "..."      "http://localhost:3000/messages?since=2026-04-01&limit=5"
+curl -H "..." \
+     "http://localhost:3000/messages?since=2026-04-01&limit=5"
 # → 200 [...]
 ```
 
 ---
 
 ## Step 4 — `GET /messages/:uid`
+
+**Status:** ⬜ not started
 
 **Goal:** full message fetch including plain-text, HTML, and attachment metadata (no body download for attachments).
 
@@ -123,6 +138,8 @@ curl -H "..." http://localhost:3000/messages/99999
 
 ## Step 5 — `PATCH /messages/:uid` + `DELETE /messages/:uid`
 
+**Status:** ⬜ not started
+
 **Goal:** message state management — mark seen/unseen, delete.
 
 ### Files added / modified
@@ -141,7 +158,9 @@ test/routes/messages.test.ts     # + patch + delete cases
 
 ### Definition of done
 ```bash
-curl -X PATCH -H "..." -H "Content-Type: application/json"      -d '{"seen":true}'      http://localhost:3000/messages/42
+curl -X PATCH -H "..." -H "Content-Type: application/json" \
+     -d '{"seen":true}' \
+     http://localhost:3000/messages/42
 # → 204 No Content
 
 curl -X DELETE -H "..." http://localhost:3000/messages/42
@@ -154,6 +173,8 @@ curl -X DELETE -H "..." http://localhost:3000/messages/42
 ---
 
 ## Step 6 — `POST /send`
+
+**Status:** ⬜ not started
 
 **Goal:** outbound email via SMTP; completes the full read-and-write API surface.
 
@@ -178,7 +199,13 @@ test/routes/send.test.ts
 
 ### Definition of done
 ```bash
-curl -X POST      -H "X-Mail-User: me@example.com"      -H "X-Mail-Password: secret"      -H "X-SMTP-Host: smtp.example.com"      -H "Content-Type: application/json"      -d '{"from":"me@example.com","to":["alice@example.com"],"subject":"Test","text":"Hi"}'      http://localhost:3000/send
+curl -X POST \
+     -H "X-Mail-User: me@example.com" \
+     -H "X-Mail-Password: secret" \
+     -H "X-SMTP-Host: smtp.example.com" \
+     -H "Content-Type: application/json" \
+     -d '{"from":"me@example.com","to":["alice@example.com"],"subject":"Test","text":"Hi"}' \
+     http://localhost:3000/send
 # → 202 {"messageId":"<abc123@example.com>"}
 ```
 
