@@ -99,6 +99,56 @@ OneCLI supports injecting multiple headers per request (via `Vec<Injection>` rul
 
 ---
 
+## Implementation Requirements
+
+### Language & Runtime
+
+- **TypeScript only** — no plain JavaScript source files
+- **TypeScript strict mode** — `strict: true` in `tsconfig.json`
+- **Node.js 22 LTS** — minimum runtime version; used as the Docker base image
+
+### HTTP Framework
+
+- **Fastify** — TypeScript-native, minimal, built-in JSON schema validation
+
+### Dependencies
+
+- **Minimal** — only add a dependency if it provides substantial value over a native implementation
+- **No deprecated packages** — all dependencies must be actively maintained
+- **No known vulnerabilities** — enforced via `npm audit` in CI
+
+### Key Libraries
+
+- [`imapflow`](https://github.com/postalsys/imapflow) — IMAP client
+- [`nodemailer`](https://github.com/nodemailer/nodemailer) — SMTP client
+
+### Testing
+
+- **Jest** — test framework
+- **Minimal tests** — cover critical paths; no hard coverage floor
+- Tests run as part of CI on every PR
+
+### Code Quality
+
+- **ESLint** — TypeScript-aware linting
+- **Prettier** — code formatting
+
+### CI (GitHub Actions)
+
+Every pull request runs:
+1. `tsc` — type checking
+2. `eslint` — linting
+3. `jest` — tests
+4. `npm audit` — dependency vulnerability check
+
+### Docker
+
+- Multi-stage build — separate build and runtime stages
+- Alpine-based runtime image — minimal footprint
+- Runs as non-root user
+
+---
+
 ## Out of Scope (v1)
 
 - OAuth / multi-account support
