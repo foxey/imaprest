@@ -82,7 +82,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 5 — `POST /send`, `POST /mailboxes/:mailbox/messages/:uid/reply` 👀 in review
+## Step 5 — `POST /send`, `POST /mailboxes/:mailbox/messages/:uid/reply` ✅ done
 
 **Goal**: Send new messages and reply to existing ones.
 
@@ -100,7 +100,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 6 — `DELETE /mailboxes/:mailbox/messages/:uid`, `PATCH …/:uid` ⬜ not started
+## Step 6 — `DELETE /mailboxes/:mailbox/messages/:uid`, `PATCH …/:uid` 🔄 in progress
 
 **Goal**: Move messages to Trash and toggle the `\Seen` flag.
 
