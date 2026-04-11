@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance } from "fastify";
 import { healthRoutes } from "./routes/health";
 import { mailboxRoutes } from "./routes/mailboxes";
+import { messagesRoutes } from "./routes/messages";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -12,6 +13,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(healthRoutes);
   await app.register(mailboxRoutes);
+  await app.register(messagesRoutes);
 
   return app;
 }

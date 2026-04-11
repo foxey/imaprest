@@ -30,7 +30,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 2 — credential middleware + `GET /mailboxes` 🔄 in progress
+## Step 2 — credential middleware + `GET /mailboxes` ✅ done
 
 **Goal**: Validate credential headers on every request and list IMAP mailboxes.
 
@@ -47,7 +47,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 3 — `GET /mailboxes/:mailbox/messages` ⬜ not started
+## Step 3 — `GET /mailboxes/:mailbox/messages` 🔄 in progress
 
 **Goal**: List messages in a mailbox with optional filters.
 
