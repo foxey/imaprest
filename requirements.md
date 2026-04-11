@@ -2,7 +2,7 @@
 
 ## Overview
 
-`imaprest` is a lightweight, stateless HTTP bridge that exposes a REST API for reading email via IMAP and sending email via SMTP. It is designed to be run as a Docker container behind a credential-injecting proxy (such as OneCLI), which supplies IMAP/SMTP credentials as HTTP request headers. The bridge itself stores no credentials.
+`imaprest` is a lightweight, stateless HTTP bridge that exposes a REST API for reading email via IMAP and sending email via SMTP. It is designed to be run as a Docker container behind a credential-injecting proxy (such as OneCLI), which supplies the mail credentials as HTTP request headers. The bridge itself stores no credentials.
 
 ---
 
@@ -60,29 +60,38 @@
 
 ## Credential Injection via HTTP Headers
 
-Credentials are **not** stored in the container. They are supplied by the caller (e.g. OneCLI proxy) as HTTP request headers on every request:
+Credentials are **not** stored in the container. They are split into two categories:
+
+### Injected by OneCLI proxy (secrets)
+
+OneCLI intercepts each request and injects the following headers automatically. The calling agent never handles these values directly.
 
 | Header | Description |
 |---|---|
-| `X-IMAP-Host` | IMAP server hostname |
-| `X-IMAP-Port` | IMAP server port (default: `993`) |
-| `X-IMAP-TLS` | `true`/`false` (default: `true`) |
-| `X-IMAP-User` | IMAP username |
-| `X-IMAP-Password` | IMAP password |
-| `X-SMTP-Host` | SMTP server hostname |
-| `X-SMTP-Port` | SMTP server port (default: `587`) |
-| `X-SMTP-TLS` | `true`/`false` (default: `true`) |
-| `X-SMTP-User` | SMTP username |
-| `X-SMTP-Password` | SMTP password |
+| `X-Mail-User` | Mail account username (e.g. `user@example.com`) |
+| `X-Mail-Password` | Mail account password |
 
-IMAP headers are required for all `/mailboxes` and `/messages` endpoints.  
-SMTP headers are required for `POST /send`.
+OneCLI supports injecting multiple headers per request (via `Vec<Injection>` rules in its gateway), so both headers are injected in a single operation. The same credentials are used for both IMAP and SMTP connections.
+
+### Provided by the caller (non-secret config)
+
+| Header | Description | Default |
+|---|---|---|
+| `X-IMAP-Host` | IMAP server hostname | — |
+| `X-IMAP-Port` | IMAP server port | `993` |
+| `X-IMAP-TLS` | Use TLS (`true`/`false`) | `true` |
+| `X-SMTP-Host` | SMTP server hostname | — |
+| `X-SMTP-Port` | SMTP server port | `587` |
+| `X-SMTP-TLS` | Use TLS (`true`/`false`) | `true` |
+
+`X-IMAP-*` headers are required for all `/mailboxes` and `/messages` endpoints.
+`X-SMTP-*` headers are required for `POST /send`.
 
 ---
 
 ## Non-Functional Requirements
 
-- **Stateless** — no database, no persistent state; each request opens and closes its own IMAP connection
+- **Stateless** — no database, no persistent state; each request opens and closes its own IMAP/SMTP connection
 - **Performance** — all message filtering uses server-side IMAP `SEARCH`; message bodies are only fetched when explicitly requested
 - **Docker-first** — official `Dockerfile`, minimal image (Node.js Alpine base)
 - **No privileged access** — runs as a non-root user inside the container
