@@ -1,5 +1,5 @@
 import { ImapFlow } from "imapflow";
-import { Credentials } from "./credentials";
+import { BaseCredentials, ImapConfig } from "./credentials";
 
 export interface Mailbox {
   path: string;
@@ -9,11 +9,14 @@ export interface Mailbox {
   subscribed: boolean;
 }
 
-export async function createImapClient(creds: Credentials): Promise<ImapFlow> {
+export async function createImapClient(
+  creds: BaseCredentials,
+  imap: ImapConfig
+): Promise<ImapFlow> {
   const client = new ImapFlow({
-    host: creds.imap.host,
-    port: creds.imap.port,
-    secure: creds.imap.tls,
+    host: imap.host,
+    port: imap.port,
+    secure: imap.tls,
     auth: {
       user: creds.user,
       pass: creds.password,
