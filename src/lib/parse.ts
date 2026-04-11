@@ -17,6 +17,8 @@ export interface ParsedMessage {
   text: string | null;
   html: string | null;
   attachments: Attachment[];
+  messageId: string | null;
+  references: string[];
 }
 
 function formatAddresses(
@@ -53,5 +55,11 @@ export async function parseRawMessage(
         size: a.size ?? 0,
         contentId: a.contentId ?? null,
       })),
+    messageId: parsed.messageId ?? null,
+    references: Array.isArray(parsed.references)
+      ? parsed.references
+      : parsed.references
+        ? [parsed.references]
+        : [],
   };
 }
