@@ -5,6 +5,11 @@ export class CredentialError extends Error {
   }
 }
 
+export interface BaseCredentials {
+  user: string;
+  password: string;
+}
+
 export interface ImapConfig {
   host: string;
   port: number;
@@ -17,12 +22,6 @@ export interface SmtpConfig {
   tls: boolean;
 }
 
-export interface Credentials {
-  user: string;
-  password: string;
-  imap: ImapConfig;
-}
-
 type Headers = Record<string, string | string[] | undefined>;
 
 function getHeader(headers: Headers, name: string): string | undefined {
@@ -31,20 +30,25 @@ function getHeader(headers: Headers, name: string): string | undefined {
   return value;
 }
 
-export function extractCredentials(headers: Headers): Credentials {
+export function extractCredentials(headers: Headers): BaseCredentials {
   const user = getHeader(headers, "x-mail-user");
   const password = getHeader(headers, "x-mail-password");
-  const imapHost = getHeader(headers, "x-imap-host");
 
-  if (!user || !password || !imapHost) {
-    const missing = [
-      !user && "X-Mail-User",
-      !password && "X-Mail-Password",
-      !imapHost && "X-IMAP-Host",
-    ]
+  if (!user || !password) {
+    const missing = [!user && "X-Mail-User", !password && "X-Mail-Password"]
       .filter(Boolean)
       .join(", ");
     throw new CredentialError(`Missing required headers: ${missing}`);
+  }
+
+  return { user, password };
+}
+
+export function extractImapConfig(headers: Headers): ImapConfig {
+  const host = getHeader(headers, "x-imap-host");
+
+  if (!host) {
+    throw new CredentialError("Missing required header: X-IMAP-Host");
   }
 
   const portStr = getHeader(headers, "x-imap-port") ?? "993";
@@ -55,21 +59,13 @@ export function extractCredentials(headers: Headers): Credentials {
     throw new CredentialError("X-IMAP-Port must be a valid port number (1-65535)");
   }
 
-  return {
-    user,
-    password,
-    imap: {
-      host: imapHost,
-      port,
-      tls: tlsStr.toLowerCase() !== "false",
-    },
-  };
+  return { host, port, tls: tlsStr.toLowerCase() !== "false" };
 }
 
 export function extractSmtpConfig(headers: Headers): SmtpConfig {
-  const smtpHost = getHeader(headers, "x-smtp-host");
+  const host = getHeader(headers, "x-smtp-host");
 
-  if (!smtpHost) {
+  if (!host) {
     throw new CredentialError("Missing required header: X-SMTP-Host");
   }
 
@@ -81,9 +77,5 @@ export function extractSmtpConfig(headers: Headers): SmtpConfig {
     throw new CredentialError("X-SMTP-Port must be a valid port number (1-65535)");
   }
 
-  return {
-    host: smtpHost,
-    port,
-    tls: tlsStr.toLowerCase() === "true",
-  };
+  return { host, port, tls: tlsStr.toLowerCase() === "true" };
 }

@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   CredentialError,
   extractCredentials,
+  extractImapConfig,
   extractSmtpConfig,
 } from "../lib/credentials";
 import { createImapClient, disconnectImapClient } from "../lib/imap";
@@ -27,10 +28,10 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       reply: FastifyReply
     ) => {
       let creds;
+      let imap;
       try {
-        creds = extractCredentials(
-          request.headers as Record<string, string | string[] | undefined>
-        );
+        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
+        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
       } catch (err) {
         if (err instanceof CredentialError) {
           return reply.status(401).send({ error: err.message });
@@ -45,7 +46,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: (err as Error).message });
       }
 
-      const client = await createImapClient(creds);
+      const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
 
@@ -85,10 +86,10 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       reply: FastifyReply
     ) => {
       let creds;
+      let imap;
       try {
-        creds = extractCredentials(
-          request.headers as Record<string, string | string[] | undefined>
-        );
+        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
+        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
       } catch (err) {
         if (err instanceof CredentialError) {
           return reply.status(401).send({ error: err.message });
@@ -101,7 +102,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
       }
 
-      const client = await createImapClient(creds);
+      const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
 
@@ -137,10 +138,10 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       reply: FastifyReply
     ) => {
       let creds;
+      let imap;
       try {
-        creds = extractCredentials(
-          request.headers as Record<string, string | string[] | undefined>
-        );
+        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
+        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
       } catch (err) {
         if (err instanceof CredentialError) {
           return reply.status(401).send({ error: err.message });
@@ -153,7 +154,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
       }
 
-      const client = await createImapClient(creds);
+      const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
 
@@ -184,10 +185,10 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       reply: FastifyReply
     ) => {
       let creds;
+      let imap;
       try {
-        creds = extractCredentials(
-          request.headers as Record<string, string | string[] | undefined>
-        );
+        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
+        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
       } catch (err) {
         if (err instanceof CredentialError) {
           return reply.status(401).send({ error: err.message });
@@ -206,7 +207,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: "'seen' must be a boolean" });
       }
 
-      const client = await createImapClient(creds);
+      const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
 
@@ -242,22 +243,12 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
       reply: FastifyReply
     ) => {
       let creds;
-      try {
-        creds = extractCredentials(
-          request.headers as Record<string, string | string[] | undefined>
-        );
-      } catch (err) {
-        if (err instanceof CredentialError) {
-          return reply.status(401).send({ error: err.message });
-        }
-        throw err;
-      }
-
+      let imap;
       let smtp;
       try {
-        smtp = extractSmtpConfig(
-          request.headers as Record<string, string | string[] | undefined>
-        );
+        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
+        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
+        smtp = extractSmtpConfig(request.headers as Record<string, string | string[] | undefined>);
       } catch (err) {
         if (err instanceof CredentialError) {
           return reply.status(401).send({ error: err.message });
@@ -281,7 +272,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
           .send({ error: "At least one of 'text' or 'html' is required" });
       }
 
-      const client = await createImapClient(creds);
+      const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
 
@@ -310,7 +301,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
           : original.references;
 
         await sendMail(
-          { user: creds.user, password: creds.password },
+          creds,
           smtp,
           {
             from: creds.user,
