@@ -4,7 +4,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 1 — project scaffold 🔄 in progress
+## Step 1 — project scaffold ✅ done
 
 **Goal**: Establish the repo skeleton so CI passes on an empty but well-formed project.
 
@@ -30,7 +30,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 2 — credential middleware + `GET /mailboxes` ⬜ not started
+## Step 2 — credential middleware + `GET /mailboxes` 🔄 in progress
 
 **Goal**: Validate credential headers on every request and list IMAP mailboxes.
 
