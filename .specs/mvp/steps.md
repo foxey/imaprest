@@ -1,212 +1,117 @@
-# imaprest — Implementation Steps
+# imaprest — implementation steps
 
-Each step targets a separate PR and leaves the application in a runnable, testable state.
-
-**Status legend:** ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
+Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 1 — Project scaffold + `GET /health`
+## Step 1 — project scaffold 🔄 in progress
 
-**Status:** ⬜ not started
+**Goal**: Establish the repo skeleton so CI passes on an empty but well-formed project.
 
-**Goal:** a compiling, linting, tested, containerised skeleton with a single live endpoint.
+**Files**
+- `package.json` — deps, scripts
+- `tsconfig.json` + `tsconfig.build.json`
+- `eslint.config.mjs`
+- `jest.config.ts`
+- `.github/workflows/ci.yml`
+- `Dockerfile` (multi-stage)
+- `src/server.ts` — entry point, reads `PORT`
+- `src/app.ts` — `buildApp()` factory, registers routes, redacts password header in logs
+- `src/routes/health.ts` — `GET /health → 200 { status: "ok" }`
+- `test/routes/health.test.ts` — uses `app.inject()`
 
-### Files
-```
-package.json
-tsconfig.json
-eslint.config.mjs
-jest.config.ts
-.github/workflows/ci.yml
-Dockerfile
-src/server.ts          # process entry point — binds PORT
-src/app.ts             # Fastify app factory — registers plugins + routes
-src/routes/health.ts   # GET /health → 200 { "status": "ok" }
-test/routes/health.test.ts
-```
-
-### CI checks
-`tsc --noEmit` · `eslint src` · `jest` · `npm audit --audit-level=high`
-
-### Definition of done
-```bash
-docker build -t imaprest .
-docker run --rm -p 3000:3000 imaprest
-curl http://localhost:3000/health          # → {"status":"ok"}
-```
+**Definition of done**
+- `npm run typecheck` passes
+- `npm run lint` passes
+- `npm test` passes (health route test)
+- `npm run build` produces `dist/`
+- CI workflow green on push
+- `curl http://localhost:3000/health` → `{"status":"ok"}`
 
 ---
 
-## Step 2 — Credential middleware + `GET /mailboxes`
+## Step 2 — credential middleware + `GET /mailboxes` ⬜ not started
 
-**Status:** ⬜ not started
+**Goal**: Validate credential headers on every request and list IMAP mailboxes.
 
-**Goal:** first real IMAP operation; validates that the credential injection model works end-to-end.
+**Files**
+- `src/lib/credentials.ts` — extract + validate `X-Mail-*` / `X-IMAP-*` headers, return typed object or throw `401`
+- `src/lib/imap.ts` — thin wrapper: `connect(creds)` → `ImapClient`, `disconnect(client)`
+- `src/routes/mailboxes.ts` — `GET /mailboxes` → lists all mailboxes via IMAP `LIST "" "*"`
+- `test/routes/mailboxes.test.ts` — mock `src/lib/imap.ts`, assert shape + 401 on missing creds
 
-### Files added / modified
-```
-src/types/index.ts               # ImapCredentials, SmtpCredentials interfaces
-src/middleware/credentials.ts    # onRequest hook — extracts & validates headers, attaches to request
-src/services/imap.ts             # ImapFlow connection helper + listMailboxes()
-src/routes/mailboxes.ts          # GET /mailboxes
-test/middleware/credentials.test.ts
-test/routes/mailboxes.test.ts    # mock ImapFlow
-```
-
-### Definition of done
-```bash
-curl -H "X-Mail-User: user@example.com" \
-     -H "X-Mail-Password: secret" \
-     -H "X-IMAP-Host: imap.example.com" \
-     http://localhost:3000/mailboxes
-# → 200 [{"path":"INBOX","delimiter":"/","flags":[]}, ...]
-
-curl http://localhost:3000/mailboxes      # missing headers
-# → 400 {"error":"Missing required header: X-Mail-User"}
-```
+**Definition of done**
+- Missing / malformed credential headers → `401 { error: "..." }`
+- Valid creds + live IMAP → array of mailbox objects
+- Unit tests pass (imap lib mocked)
 
 ---
 
-## Step 3 — `GET /messages`
+## Step 3 — `GET /mailboxes/:mailbox/messages` ⬜ not started
 
-**Status:** ⬜ not started
+**Goal**: List messages in a mailbox with optional filters.
 
-**Goal:** server-side IMAP `SEARCH` with filtering; never loads full message bodies.
+**Files**
+- `src/routes/messages.ts` — `GET /mailboxes/:mailbox/messages`
+  - query params: `?unseen=true`, `?from=`, `?subject=`, `?since=` (ISO-8601)
+  - returns array of message summaries (uid, from, subject, date, seen)
+- `src/lib/search.ts` — build IMAP SEARCH criteria from query params
+- `test/routes/messages.test.ts`
 
-### Files added / modified
-```
-src/services/imap.ts             # + searchMessages(creds, mailbox, filters, limit)
-src/routes/messages.ts           # GET /messages
-test/routes/messages.test.ts
-```
-
-### Query parameters
-| Parameter  | Type    | Default   | IMAP mapping          |
-|------------|---------|-----------|-----------------------|
-| `mailbox`  | string  | `"INBOX"` | mailbox name          |
-| `unseen`   | boolean | —         | `UNSEEN`              |
-| `since`    | date    | —         | `SINCE DD-Mon-YYYY`   |
-| `limit`    | integer | `50`      | slice of UID list     |
-
-### Definition of done
-```bash
-curl -H "..." \
-     "http://localhost:3000/messages?unseen=true&limit=10"
-# → 200 [{"uid":42,"date":"2026-04-11T...","from":"...","subject":"...","seen":false,"size":1234}, ...]
-
-curl -H "..." \
-     "http://localhost:3000/messages?since=2026-04-01&limit=5"
-# → 200 [...]
-```
+**Definition of done**
+- No filters → all messages in mailbox
+- Filter combos produce correct IMAP SEARCH criteria
+- Unit tests pass
 
 ---
 
-## Step 4 — `GET /messages/:uid`
+## Step 4 — `GET /mailboxes/:mailbox/messages/:uid` ⬜ not started
 
-**Status:** ⬜ not started
+**Goal**: Fetch a single message with headers + body.
 
-**Goal:** full message fetch including plain-text, HTML, and attachment metadata (no body download for attachments).
+**Files**
+- extend `src/routes/messages.ts` — `GET /mailboxes/:mailbox/messages/:uid`
+  - returns `{ uid, from, to, subject, date, text, html, attachments[] }`
+- `src/lib/parse.ts` — parse raw RFC 822 message into structured object
+- `test/routes/message.test.ts`
 
-### Files added / modified
-```
-src/services/imap.ts             # + fetchMessage(creds, mailbox, uid)
-src/routes/messages.ts           # + GET /messages/:uid
-test/routes/messages.test.ts     # + uid fetch cases
-```
-
-### Definition of done
-```bash
-curl -H "..." http://localhost:3000/messages/42
-# → 200 {
-#     "uid": 42,
-#     "date": "2026-04-11T10:00:00Z",
-#     "from": "Alice <alice@example.com>",
-#     "to": ["me@example.com"],
-#     "cc": [],
-#     "subject": "Hello",
-#     "text": "Hi there",
-#     "html": "<p>Hi there</p>",
-#     "attachments": [{"filename":"doc.pdf","contentType":"application/pdf","size":20480,"contentId":null}]
-#   }
-
-curl -H "..." http://localhost:3000/messages/99999
-# → 404 {"error":"Message not found"}
-```
+**Definition of done**
+- Plain-text, HTML, and mixed messages all parsed correctly
+- Attachments list includes filename + content-type (no body)
+- Unit tests pass
 
 ---
 
-## Step 5 — `PATCH /messages/:uid` + `DELETE /messages/:uid`
+## Step 5 — `POST /send`, `POST /mailboxes/:mailbox/messages/:uid/reply` ⬜ not started
 
-**Status:** ⬜ not started
+**Goal**: Send new messages and reply to existing ones.
 
-**Goal:** message state management — mark seen/unseen, delete.
+**Files**
+- `src/lib/smtp.ts` — `sendMail(creds, mail)` via SMTP
+- `src/routes/send.ts` — `POST /send` → compose + send
+- extend `src/routes/messages.ts` — `POST …/:uid/reply` → fetch original, build reply, send
+- `test/routes/send.test.ts`, `test/routes/reply.test.ts`
 
-### Files added / modified
-```
-src/services/imap.ts             # + setFlags(creds, mailbox, uid, flags)
-                                 # + deleteMessage(creds, mailbox, uid)
-src/routes/messages.ts           # + PATCH /messages/:uid
-                                 # + DELETE /messages/:uid
-test/routes/messages.test.ts     # + patch + delete cases
-```
-
-### Request body (`PATCH`)
-```json
-{ "seen": true }
-```
-
-### Definition of done
-```bash
-curl -X PATCH -H "..." -H "Content-Type: application/json" \
-     -d '{"seen":true}' \
-     http://localhost:3000/messages/42
-# → 204 No Content
-
-curl -X DELETE -H "..." http://localhost:3000/messages/42
-# → 204 No Content
-
-curl -X DELETE -H "..." http://localhost:3000/messages/42
-# → 404 {"error":"Message not found"}
-```
+**Definition of done**
+- `POST /send` with valid body → `202 { queued: true }`
+- Reply sets correct `In-Reply-To` and `References` headers
+- Missing required fields → `400`
+- Unit tests pass (SMTP mocked)
 
 ---
 
-## Step 6 — `POST /send`
+## Step 6 — `DELETE /mailboxes/:mailbox/messages/:uid`, `PATCH …/:uid` ⬜ not started
 
-**Status:** ⬜ not started
+**Goal**: Move messages to Trash and toggle the `\Seen` flag.
 
-**Goal:** outbound email via SMTP; completes the full read-and-write API surface.
+**Files**
+- extend `src/routes/messages.ts`
+  - `DELETE …/:uid` → move to Trash mailbox
+  - `PATCH …/:uid` — body `{ seen: boolean }` → set/clear `\Seen` flag
+- `test/routes/delete.test.ts`, `test/routes/patch.test.ts`
 
-### Files added / modified
-```
-src/services/smtp.ts             # nodemailer transporter + sendMessage()
-src/routes/send.ts               # POST /send
-test/routes/send.test.ts
-```
-
-### Request body
-```json
-{
-  "from":    "me@example.com",
-  "to":      ["alice@example.com"],
-  "cc":      [],
-  "subject": "Hello",
-  "text":    "Hi Alice",
-  "html":    "<p>Hi Alice</p>"
-}
-```
-
-### Definition of done
-```bash
-curl -X POST \
-     -H "X-Mail-User: me@example.com" \
-     -H "X-Mail-Password: secret" \
-     -H "X-SMTP-Host: smtp.example.com" \
-     -H "Content-Type: application/json" \
-     -d '{"from":"me@example.com","to":["alice@example.com"],"subject":"Test","text":"Hi"}' \
-     http://localhost:3000/send
-# → 202 {"messageId":"<abc123@example.com>"}
-```
-
-After this step, all seven endpoints defined in `requirements.md` are implemented and the service is ready for integration with NanoClaw.
+**Definition of done**
+- `DELETE` moves message to Trash (IMAP MOVE or COPY+EXPUNGE)
+- `PATCH { seen: true }` sets `\Seen`; `{ seen: false }` clears it
+- `404` if uid not found
+- Unit tests pass
