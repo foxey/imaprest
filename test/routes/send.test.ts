@@ -6,7 +6,6 @@ jest.mock("../../src/lib/smtp");
 const CRED_HEADERS = {
   "x-mail-user": "user@example.com",
   "x-mail-password": "secret",
-  "x-imap-host": "imap.example.com",
   "x-smtp-host": "smtp.example.com",
 };
 
@@ -41,11 +40,26 @@ describe("POST /send", () => {
       headers: {
         "x-mail-user": "user@example.com",
         "x-mail-password": "secret",
-        "x-imap-host": "imap.example.com",
       },
       payload: VALID_BODY,
     });
     expect(response.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("returns 202 without X-IMAP-Host (IMAP not needed for send)", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "POST",
+      url: "/send",
+      headers: {
+        "x-mail-user": "user@example.com",
+        "x-mail-password": "secret",
+        "x-smtp-host": "smtp.example.com",
+      },
+      payload: VALID_BODY,
+    });
+    expect(response.statusCode).toBe(202);
     await app.close();
   });
 

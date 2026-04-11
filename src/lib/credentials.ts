@@ -17,9 +17,12 @@ export interface SmtpConfig {
   tls: boolean;
 }
 
-export interface Credentials {
+export interface BaseCredentials {
   user: string;
   password: string;
+}
+
+export interface Credentials extends BaseCredentials {
   imap: ImapConfig;
 }
 
@@ -29,6 +32,20 @@ function getHeader(headers: Headers, name: string): string | undefined {
   const value = headers[name];
   if (Array.isArray(value)) return value[0];
   return value;
+}
+
+export function extractBaseCredentials(headers: Headers): BaseCredentials {
+  const user = getHeader(headers, "x-mail-user");
+  const password = getHeader(headers, "x-mail-password");
+
+  if (!user || !password) {
+    const missing = [!user && "X-Mail-User", !password && "X-Mail-Password"]
+      .filter(Boolean)
+      .join(", ");
+    throw new CredentialError(`Missing required headers: ${missing}`);
+  }
+
+  return { user, password };
 }
 
 export function extractCredentials(headers: Headers): Credentials {

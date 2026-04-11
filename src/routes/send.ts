@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   CredentialError,
-  extractCredentials,
+  extractBaseCredentials,
   extractSmtpConfig,
 } from "../lib/credentials";
 import { sendMail } from "../lib/smtp";
@@ -23,7 +23,7 @@ export async function sendRoutes(app: FastifyInstance): Promise<void> {
     ) => {
       let creds;
       try {
-        creds = extractCredentials(
+        creds = extractBaseCredentials(
           request.headers as Record<string, string | string[] | undefined>
         );
       } catch (err) {
