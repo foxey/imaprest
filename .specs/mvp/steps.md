@@ -100,9 +100,9 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 6 — `DELETE /mailboxes/:mailbox/messages/:uid`, `PATCH …/:uid` 🔄 in progress
+## Step 6 — `DELETE /mailboxes/:mailbox/messages/:uid`, `PATCH …/:uid` ✅ done
 
-**Goal**: Move messages to Trash and toggle the `\Seen` flag.
+**Goal**: Move messages to Trash and toggle the \Seen flag.
 
 **Files**
 - extend `src/routes/messages.ts`
