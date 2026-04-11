@@ -1,8 +1,13 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { CredentialError, extractCredentials } from "../lib/credentials";
+import {
+  CredentialError,
+  extractCredentials,
+  extractSmtpConfig,
+} from "../lib/credentials";
 import { createImapClient, disconnectImapClient } from "../lib/imap";
 import { parseRawMessage } from "../lib/parse";
 import { buildSearchCriteria, SearchParams } from "../lib/search";
+import { sendMail } from "../lib/smtp";
 
 interface MessageSummary {
   uid: number;
@@ -117,6 +122,108 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         }
 
         return reply.send(result);
+      } finally {
+        await disconnectImapClient(client);
+      }
+    }
+  );
+
+  type ReplyParams = { mailbox: string; uid: string };
+
+  interface ReplyBody {
+    text?: unknown;
+    html?: unknown;
+  }
+
+  app.post<{ Params: ReplyParams; Body: ReplyBody }>(
+    "/mailboxes/:mailbox/messages/:uid/reply",
+    async (
+      request: FastifyRequest<{ Params: ReplyParams; Body: ReplyBody }>,
+      reply: FastifyReply
+    ) => {
+      let creds;
+      try {
+        creds = extractCredentials(
+          request.headers as Record<string, string | string[] | undefined>
+        );
+      } catch (err) {
+        if (err instanceof CredentialError) {
+          return reply.status(401).send({ error: err.message });
+        }
+        throw err;
+      }
+
+      let smtp;
+      try {
+        smtp = extractSmtpConfig(
+          request.headers as Record<string, string | string[] | undefined>
+        );
+      } catch (err) {
+        if (err instanceof CredentialError) {
+          return reply.status(401).send({ error: err.message });
+        }
+        throw err;
+      }
+
+      const uidInt = parseInt(request.params.uid, 10);
+      if (isNaN(uidInt) || uidInt <= 0) {
+        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
+      }
+
+      const body = request.body ?? {};
+
+      if (
+        (typeof body.text !== "string" || body.text.trim() === "") &&
+        (typeof body.html !== "string" || body.html.trim() === "")
+      ) {
+        return reply
+          .status(400)
+          .send({ error: "At least one of 'text' or 'html' is required" });
+      }
+
+      const client = await createImapClient(creds);
+      try {
+        await client.mailboxOpen(request.params.mailbox);
+
+        let original = null;
+        for await (const msg of client.fetch(
+          [uidInt],
+          { uid: true, source: true },
+          { uid: true }
+        )) {
+          if (msg.source) {
+            original = await parseRawMessage(msg.uid, msg.source);
+          }
+          break;
+        }
+
+        if (original === null) {
+          return reply.status(404).send({ error: "Message not found" });
+        }
+
+        const reSubject = original.subject.match(/^re:\s/i)
+          ? original.subject
+          : `Re: ${original.subject}`;
+
+        const references = original.messageId
+          ? [...original.references, original.messageId]
+          : original.references;
+
+        await sendMail(
+          { user: creds.user, password: creds.password },
+          smtp,
+          {
+            from: creds.user,
+            to: [original.from],
+            subject: reSubject,
+            text: typeof body.text === "string" ? body.text : null,
+            html: typeof body.html === "string" ? body.html : null,
+            inReplyTo: original.messageId,
+            references,
+          }
+        );
+
+        return reply.status(202).send({ queued: true });
       } finally {
         await disconnectImapClient(client);
       }

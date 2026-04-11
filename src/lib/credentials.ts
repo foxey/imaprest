@@ -11,6 +11,12 @@ export interface ImapConfig {
   tls: boolean;
 }
 
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  tls: boolean;
+}
+
 export interface Credentials {
   user: string;
   password: string;
@@ -57,5 +63,27 @@ export function extractCredentials(headers: Headers): Credentials {
       port,
       tls: tlsStr.toLowerCase() !== "false",
     },
+  };
+}
+
+export function extractSmtpConfig(headers: Headers): SmtpConfig {
+  const smtpHost = getHeader(headers, "x-smtp-host");
+
+  if (!smtpHost) {
+    throw new CredentialError("Missing required header: X-SMTP-Host");
+  }
+
+  const portStr = getHeader(headers, "x-smtp-port") ?? "587";
+  const tlsStr = getHeader(headers, "x-smtp-tls") ?? "false";
+  const port = parseInt(portStr, 10);
+
+  if (isNaN(port) || port < 1 || port > 65535) {
+    throw new CredentialError("X-SMTP-Port must be a valid port number (1-65535)");
+  }
+
+  return {
+    host: smtpHost,
+    port,
+    tls: tlsStr.toLowerCase() === "true",
   };
 }
