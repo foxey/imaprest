@@ -128,6 +128,106 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
     }
   );
 
+  type DeleteParams = { mailbox: string; uid: string };
+
+  app.delete<{ Params: DeleteParams }>(
+    "/mailboxes/:mailbox/messages/:uid",
+    async (
+      request: FastifyRequest<{ Params: DeleteParams }>,
+      reply: FastifyReply
+    ) => {
+      let creds;
+      try {
+        creds = extractCredentials(
+          request.headers as Record<string, string | string[] | undefined>
+        );
+      } catch (err) {
+        if (err instanceof CredentialError) {
+          return reply.status(401).send({ error: err.message });
+        }
+        throw err;
+      }
+
+      const uidInt = parseInt(request.params.uid, 10);
+      if (isNaN(uidInt) || uidInt <= 0) {
+        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
+      }
+
+      const client = await createImapClient(creds);
+      try {
+        await client.mailboxOpen(request.params.mailbox);
+
+        const found = await client.search({ uid: String(uidInt) }, { uid: true });
+        if (!found || found.length === 0) {
+          return reply.status(404).send({ error: "Message not found" });
+        }
+
+        await client.messageMove([uidInt], "Trash", { uid: true });
+
+        return reply.status(204).send();
+      } finally {
+        await disconnectImapClient(client);
+      }
+    }
+  );
+
+  type PatchParams = { mailbox: string; uid: string };
+
+  interface PatchBody {
+    seen?: unknown;
+  }
+
+  app.patch<{ Params: PatchParams; Body: PatchBody }>(
+    "/mailboxes/:mailbox/messages/:uid",
+    async (
+      request: FastifyRequest<{ Params: PatchParams; Body: PatchBody }>,
+      reply: FastifyReply
+    ) => {
+      let creds;
+      try {
+        creds = extractCredentials(
+          request.headers as Record<string, string | string[] | undefined>
+        );
+      } catch (err) {
+        if (err instanceof CredentialError) {
+          return reply.status(401).send({ error: err.message });
+        }
+        throw err;
+      }
+
+      const uidInt = parseInt(request.params.uid, 10);
+      if (isNaN(uidInt) || uidInt <= 0) {
+        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
+      }
+
+      const body = request.body ?? {};
+
+      if (typeof body.seen !== "boolean") {
+        return reply.status(400).send({ error: "'seen' must be a boolean" });
+      }
+
+      const client = await createImapClient(creds);
+      try {
+        await client.mailboxOpen(request.params.mailbox);
+
+        const found = await client.search({ uid: String(uidInt) }, { uid: true });
+        if (!found || found.length === 0) {
+          return reply.status(404).send({ error: "Message not found" });
+        }
+
+        if (body.seen) {
+          await client.messageFlagsAdd([uidInt], ["\\Seen"], { uid: true });
+        } else {
+          await client.messageFlagsRemove([uidInt], ["\\Seen"], { uid: true });
+        }
+
+        return reply.send({ uid: uidInt, seen: body.seen });
+      } finally {
+        await disconnectImapClient(client);
+      }
+    }
+  );
+
   type ReplyParams = { mailbox: string; uid: string };
 
   interface ReplyBody {
