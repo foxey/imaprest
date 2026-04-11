@@ -44,7 +44,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         await client.mailboxOpen(request.params.mailbox);
 
         const uids = await client.search(criteria, { uid: true });
-        if (uids.length === 0) {
+        if (!uids || uids.length === 0) {
           return reply.send([]);
         }
 
@@ -59,7 +59,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
             from: msg.envelope?.from?.[0]?.address ?? "",
             subject: msg.envelope?.subject ?? "",
             date: msg.envelope?.date?.toISOString() ?? "",
-            seen: msg.flags.has("\\Seen"),
+            seen: msg.flags?.has("\\Seen") ?? false,
           });
         }
 
