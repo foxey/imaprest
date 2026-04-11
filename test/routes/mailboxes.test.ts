@@ -13,24 +13,24 @@ describe("GET /mailboxes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    async function* fakeList() {
-      yield {
+    const fakeEntries = [
+      {
         path: "INBOX",
         name: "INBOX",
         delimiter: "/",
         flags: new Set<string>(["\\HasNoChildren"]),
         subscribed: true,
-      };
-      yield {
+      },
+      {
         path: "Sent",
         name: "Sent",
         delimiter: "/",
         flags: new Set<string>(["\\HasNoChildren"]),
         subscribed: true,
-      };
-    }
+      },
+    ];
 
-    const mockClient = { list: fakeList };
+    const mockClient = { list: jest.fn().mockResolvedValue(fakeEntries) };
     (imapLib.createImapClient as jest.Mock).mockResolvedValue(mockClient);
     (imapLib.disconnectImapClient as jest.Mock).mockResolvedValue(undefined);
   });

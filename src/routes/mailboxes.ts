@@ -16,16 +16,14 @@ export async function mailboxRoutes(app: FastifyInstance): Promise<void> {
 
     const client = await createImapClient(creds);
     try {
-      const mailboxes: Mailbox[] = [];
-      for await (const entry of client.list()) {
-        mailboxes.push({
-          path: entry.path,
-          name: entry.name,
-          delimiter: entry.delimiter ?? "/",
-          flags: [...entry.flags],
-          subscribed: entry.subscribed ?? false,
-        });
-      }
+      const entries = await client.list();
+      const mailboxes: Mailbox[] = entries.map((entry) => ({
+        path: entry.path,
+        name: entry.name,
+        delimiter: entry.delimiter ?? "/",
+        flags: [...entry.flags],
+        subscribed: entry.subscribed ?? false,
+      }));
       return reply.send(mailboxes);
     } finally {
       await disconnectImapClient(client);
