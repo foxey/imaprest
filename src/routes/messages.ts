@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { CredentialError, extractCredentials } from "../lib/credentials";
 import { createImapClient, disconnectImapClient } from "../lib/imap";
+import { parseRawMessage } from "../lib/parse";
 import { buildSearchCriteria, SearchParams } from "../lib/search";
 
 interface MessageSummary {
@@ -64,6 +65,58 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         }
 
         return reply.send(messages);
+      } finally {
+        await disconnectImapClient(client);
+      }
+    }
+  );
+
+  type MessageParams = { mailbox: string; uid: string };
+
+  app.get<{ Params: MessageParams }>(
+    "/mailboxes/:mailbox/messages/:uid",
+    async (
+      request: FastifyRequest<{ Params: MessageParams }>,
+      reply: FastifyReply
+    ) => {
+      let creds;
+      try {
+        creds = extractCredentials(
+          request.headers as Record<string, string | string[] | undefined>
+        );
+      } catch (err) {
+        if (err instanceof CredentialError) {
+          return reply.status(401).send({ error: err.message });
+        }
+        throw err;
+      }
+
+      const uidInt = parseInt(request.params.uid, 10);
+      if (isNaN(uidInt) || uidInt <= 0) {
+        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
+      }
+
+      const client = await createImapClient(creds);
+      try {
+        await client.mailboxOpen(request.params.mailbox);
+
+        let result = null;
+        for await (const msg of client.fetch(
+          [uidInt],
+          { uid: true, source: true },
+          { uid: true }
+        )) {
+          if (msg.source) {
+            result = await parseRawMessage(msg.uid, msg.source);
+          }
+          break;
+        }
+
+        if (result === null) {
+          return reply.status(404).send({ error: "Message not found" });
+        }
+
+        return reply.send(result);
       } finally {
         await disconnectImapClient(client);
       }
