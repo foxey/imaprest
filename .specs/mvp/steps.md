@@ -47,7 +47,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 3 — `GET /mailboxes/:mailbox/messages` 🔄 in progress
+## Step 3 — `GET /mailboxes/:mailbox/messages` ✅ done
 
 **Goal**: List messages in a mailbox with optional filters.
 
@@ -65,7 +65,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 4 — `GET /mailboxes/:mailbox/messages/:uid` ⬜ not started
+## Step 4 — `GET /mailboxes/:mailbox/messages/:uid` ✅ done
 
 **Goal**: Fetch a single message with headers + body.
 
@@ -82,7 +82,7 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 
 ---
 
-## Step 5 — `POST /send`, `POST /mailboxes/:mailbox/messages/:uid/reply` ⬜ not started
+## Step 5 — `POST /send`, `POST /mailboxes/:mailbox/messages/:uid/reply` 👀 in review
 
 **Goal**: Send new messages and reply to existing ones.
 
