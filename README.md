@@ -8,10 +8,31 @@ imaprest lets you interact with email accounts over HTTP. Credentials and server
 
 ## Installation
 
+### Docker (recommended)
+
+```bash
+docker compose up -d
+```
+
+The API will be available on `http://localhost:3000`.
+
+To expose a different port, set the `PORT` environment variable and update the port mapping in `docker-compose.yml`:
+
+```yaml
+services:
+  imaprest:
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+```
+
+### From source
+
 ```bash
 npm ci
 npm run build
-node dist/index.js
+npm start
 ```
 
 Or for development with auto-reload:
