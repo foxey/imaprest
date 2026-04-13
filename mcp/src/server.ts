@@ -75,6 +75,34 @@ async function callImaprest(
 }
 
 // ---------------------------------------------------------------------------
+// Tool input schemas
+// Defined at module level to avoid TS2589 (type instantiation too deep)
+// when TypeScript infers through MCP SDK + Zod generics at the call site.
+// ---------------------------------------------------------------------------
+
+const listMessagesInput = z.object({
+  mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
+  unseen: z.boolean().optional().describe('Only return unseen messages'),
+  from: z.string().optional().describe('Filter by sender address'),
+  since: z.string().optional().describe('ISO 8601 date — return messages since this date'),
+  limit: z.number().int().positive().optional().describe('Maximum number of messages to return'),
+});
+
+const markMessageInput = z.object({
+  mailbox: z.string().describe('Mailbox name'),
+  uid: z.number().int().positive().describe('Message UID'),
+  seen: z.boolean().describe('true = mark as seen, false = mark as unseen'),
+});
+
+const sendEmailInput = z.object({
+  to: z.array(z.string()).describe('Recipient addresses'),
+  subject: z.string().describe('Email subject'),
+  text: z.string().optional().describe('Plain-text body'),
+  html: z.string().optional().describe('HTML body'),
+  cc: z.array(z.string()).optional().describe('CC addresses'),
+});
+
+// ---------------------------------------------------------------------------
 // MCP server factory — one instance per request (stateless)
 // ---------------------------------------------------------------------------
 
@@ -99,14 +127,8 @@ function buildMcpServer(): McpServer {
   server.tool(
     'list_messages',
     'List messages in a mailbox, with optional filters.',
-    {
-      mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
-      unseen: z.boolean().optional().describe('Only return unseen messages'),
-      from: z.string().optional().describe('Filter by sender address'),
-      since: z.string().optional().describe('ISO 8601 date — return messages since this date'),
-      limit: z.number().int().positive().optional().describe('Maximum number of messages to return'),
-    },
-    async ({ mailbox, unseen, from, since, limit }) => {
+    listMessagesInput.shape,
+    async ({ mailbox, unseen, from, since, limit }: z.infer<typeof listMessagesInput>) => {
       const params = new URLSearchParams();
       if (unseen) params.set('unseen', 'true');
       if (from) params.set('from', from);
@@ -168,12 +190,8 @@ function buildMcpServer(): McpServer {
   server.tool(
     'mark_message',
     'Mark a message as seen or unseen.',
-    {
-      mailbox: z.string().describe('Mailbox name'),
-      uid: z.number().int().positive().describe('Message UID'),
-      seen: z.boolean().describe('true = mark as seen, false = mark as unseen'),
-    },
-    async ({ mailbox, uid, seen }) => {
+    markMessageInput.shape,
+    async ({ mailbox, uid, seen }: z.infer<typeof markMessageInput>) => {
       const { status, data } = await callImaprest(
         'PATCH',
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}`,
@@ -214,14 +232,8 @@ function buildMcpServer(): McpServer {
   server.tool(
     'send_email',
     'Compose and send a new email.',
-    {
-      to: z.array(z.string()).describe('Recipient addresses'),
-      subject: z.string().describe('Email subject'),
-      text: z.string().optional().describe('Plain-text body'),
-      html: z.string().optional().describe('HTML body'),
-      cc: z.array(z.string()).optional().describe('CC addresses'),
-    },
-    async ({ to, subject, text, html, cc }) => {
+    sendEmailInput.shape,
+    async ({ to, subject, text, html, cc }: z.infer<typeof sendEmailInput>) => {
       const { status, data } = await callImaprest('POST', '/send', SMTP_HEADERS, {
         to,
         subject,
