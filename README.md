@@ -30,6 +30,7 @@ services:
 ### From source
 
 ```bash
+cd rest
 npm ci
 npm run build
 npm start
@@ -38,6 +39,7 @@ npm start
 Or for development with auto-reload:
 
 ```bash
+cd rest
 npm run dev
 ```
 
@@ -109,6 +111,7 @@ Body:
 ## Development
 
 ```bash
+cd rest
 npm run typecheck   # TypeScript type checking
 npm run lint        # ESLint
 npm test            # Jest tests
