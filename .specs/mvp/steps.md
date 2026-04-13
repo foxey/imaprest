@@ -115,3 +115,21 @@ Status legend: ⬜ not started · 🔄 in progress · 👀 in review · ✅ done
 - `PATCH { seen: true }` sets `\Seen`; `{ seen: false }` clears it
 - `404` if uid not found
 - Unit tests pass
+---
+
+## Step 7 — REST reorganisation + MCP server wrapper ✅ done
+
+**Goal**: Move the REST service into its own `rest/` subdirectory and expose imaprest as an MCP server so AI agents can use it directly.
+
+**Files**
+- `rest/` — REST service (moved from repo root); own `package.json`, `tsconfig.json`, `Dockerfile`
+- `mcp/` — MCP server wrapper; own `package.json`, `tsconfig.json`, `Dockerfile`
+  - `mcp/src/server.ts` — MCP server exposing tools: `list_mailboxes`, `list_messages`, `get_message`, `send_message`, `delete_message`, `mark_message`
+- `docker-compose.yml` — two services: `imaprest` (REST, port 3000) and `imaprest-mcp` (stdio transport)
+- `.github/workflows/ci.yml` — separate `rest` and `mcp` jobs
+
+**Definition of done**
+- REST service runs from `rest/` with no change to external API
+- `docker-compose up` starts both services
+- MCP server exposes all six mail tools
+- CI passes for both `rest` and `mcp` jobs
