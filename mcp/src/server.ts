@@ -75,41 +75,16 @@ async function callImaprest(
 }
 
 // ---------------------------------------------------------------------------
-// Tool input schemas
-// Defined at module level so TypeScript computes each type once and caches it.
-// Passed as `shape as any` to server.tool() to avoid tsc OOM: the MCP SDK +
-// Zod generic chain is too deep for tsc to infer inline without exhausting
-// the heap. The callback args are still explicitly typed via z.infer<>.
-// ---------------------------------------------------------------------------
-
-const listMessagesInput = z.object({
-  mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
-  unseen: z.boolean().optional().describe('Only return unseen messages'),
-  from: z.string().optional().describe('Filter by sender address'),
-  since: z.string().optional().describe('ISO 8601 date — return messages since this date'),
-  limit: z.number().int().positive().optional().describe('Maximum number of messages to return'),
-});
-
-const markMessageInput = z.object({
-  mailbox: z.string().describe('Mailbox name'),
-  uid: z.number().int().positive().describe('Message UID'),
-  seen: z.boolean().describe('true = mark as seen, false = mark as unseen'),
-});
-
-const sendEmailInput = z.object({
-  to: z.array(z.string()).describe('Recipient addresses'),
-  subject: z.string().describe('Email subject'),
-  text: z.string().optional().describe('Plain-text body'),
-  html: z.string().optional().describe('HTML body'),
-  cc: z.array(z.string()).optional().describe('CC addresses'),
-});
-
-// ---------------------------------------------------------------------------
 // MCP server factory — one instance per request (stateless)
 // ---------------------------------------------------------------------------
 
 function buildMcpServer(): McpServer {
-  const server = new McpServer({ name: 'imaprest', version: '0.1.0' });
+  // Cast to any: @modelcontextprotocol/sdk@1.29.0 ships Zod v4-based types that
+  // are structurally incompatible with our zod@3.x peer. Casting the server
+  // instance lets us call .tool() without fighting the type mismatch while
+  // keeping the rest of the file fully type-checked.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const server = new McpServer({ name: 'imaprest', version: '0.1.0' }) as any;
 
   // list_mailboxes
   server.tool(
@@ -129,9 +104,26 @@ function buildMcpServer(): McpServer {
   server.tool(
     'list_messages',
     'List messages in a mailbox, with optional filters.',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    listMessagesInput.shape as any,
-    async ({ mailbox, unseen, from, since, limit }: z.infer<typeof listMessagesInput>) => {
+    {
+      mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
+      unseen: z.boolean().optional().describe('Only return unseen messages'),
+      from: z.string().optional().describe('Filter by sender address'),
+      since: z.string().optional().describe('ISO 8601 date — return messages since this date'),
+      limit: z.number().int().positive().optional().describe('Maximum number of messages to return'),
+    },
+    async ({
+      mailbox,
+      unseen,
+      from,
+      since,
+      limit,
+    }: {
+      mailbox: string;
+      unseen?: boolean;
+      from?: string;
+      since?: string;
+      limit?: number;
+    }) => {
       const params = new URLSearchParams();
       if (unseen) params.set('unseen', 'true');
       if (from) params.set('from', from);
@@ -155,7 +147,7 @@ function buildMcpServer(): McpServer {
       mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
       uid: z.number().int().positive().describe('Message UID'),
     },
-    async ({ mailbox, uid }) => {
+    async ({ mailbox, uid }: { mailbox: string; uid: number }) => {
       const { status, data } = await callImaprest(
         'GET',
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}`,
@@ -176,7 +168,7 @@ function buildMcpServer(): McpServer {
       mailbox: z.string().describe('Source mailbox name'),
       uid: z.number().int().positive().describe('Message UID'),
     },
-    async ({ mailbox, uid }) => {
+    async ({ mailbox, uid }: { mailbox: string; uid: number }) => {
       const { status, data } = await callImaprest(
         'DELETE',
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}`,
@@ -193,9 +185,12 @@ function buildMcpServer(): McpServer {
   server.tool(
     'mark_message',
     'Mark a message as seen or unseen.',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    markMessageInput.shape as any,
-    async ({ mailbox, uid, seen }: z.infer<typeof markMessageInput>) => {
+    {
+      mailbox: z.string().describe('Mailbox name'),
+      uid: z.number().int().positive().describe('Message UID'),
+      seen: z.boolean().describe('true = mark as seen, false = mark as unseen'),
+    },
+    async ({ mailbox, uid, seen }: { mailbox: string; uid: number; seen: boolean }) => {
       const { status, data } = await callImaprest(
         'PATCH',
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}`,
@@ -218,7 +213,7 @@ function buildMcpServer(): McpServer {
       uid: z.number().int().positive().describe('UID of the message to reply to'),
       text: z.string().describe('Plain-text body of the reply'),
     },
-    async ({ mailbox, uid, text }) => {
+    async ({ mailbox, uid, text }: { mailbox: string; uid: number; text: string }) => {
       const { status, data } = await callImaprest(
         'POST',
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}/reply`,
@@ -236,9 +231,26 @@ function buildMcpServer(): McpServer {
   server.tool(
     'send_email',
     'Compose and send a new email.',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sendEmailInput.shape as any,
-    async ({ to, subject, text, html, cc }: z.infer<typeof sendEmailInput>) => {
+    {
+      to: z.array(z.string()).describe('Recipient addresses'),
+      subject: z.string().describe('Email subject'),
+      text: z.string().optional().describe('Plain-text body'),
+      html: z.string().optional().describe('HTML body'),
+      cc: z.array(z.string()).optional().describe('CC addresses'),
+    },
+    async ({
+      to,
+      subject,
+      text,
+      html,
+      cc,
+    }: {
+      to: string[];
+      subject: string;
+      text?: string;
+      html?: string;
+      cc?: string[];
+    }) => {
       const { status, data } = await callImaprest('POST', '/send', SMTP_HEADERS, {
         to,
         subject,
