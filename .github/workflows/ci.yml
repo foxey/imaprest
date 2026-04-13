@@ -4,7 +4,7 @@ on:
     branches: ["**"]
   pull_request:
 jobs:
-  ci:
+  api_ci:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,7 +21,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm audit --audit-level=high
-  mcp:
+  mcp_ci:
     runs-on: ubuntu-latest
     defaults:
       run:
