@@ -1,6 +1,6 @@
 services:
   imaprest:
-    build: .
+    build: ./rest
     ports:
       - "3000:3000"
     environment:
