@@ -3,6 +3,7 @@ export interface SearchParams {
   from?: string;
   subject?: string;
   since?: string;
+  limit?: string;
 }
 
 export interface ImapSearchCriteria {
