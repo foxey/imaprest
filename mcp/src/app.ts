@@ -273,6 +273,105 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
     },
   );
 
+  // move_message
+  server.tool(
+    'move_message',
+    'Move a message from one mailbox to another.',
+    {
+      mailbox: z.string().describe('Source mailbox name, e.g. INBOX'),
+      uid: z.number().int().positive().describe('Message UID'),
+      destination: z.string().describe('Destination mailbox name'),
+    },
+    async ({ mailbox, uid, destination }: { mailbox: string; uid: number; destination: string }) => {
+      const { status, data } = await callImaprest(
+        cfg.imaprestUrl,
+        'POST',
+        `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}/move`,
+        hdrs.imap,
+        { destination },
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
+  // copy_message
+  server.tool(
+    'copy_message',
+    'Copy a message from one mailbox to another.',
+    {
+      mailbox: z.string().describe('Source mailbox name, e.g. INBOX'),
+      uid: z.number().int().positive().describe('Message UID'),
+      destination: z.string().describe('Destination mailbox name'),
+    },
+    async ({ mailbox, uid, destination }: { mailbox: string; uid: number; destination: string }) => {
+      const { status, data } = await callImaprest(
+        cfg.imaprestUrl,
+        'POST',
+        `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}/copy`,
+        hdrs.imap,
+        { destination },
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
+  // search_messages
+  server.tool(
+    'search_messages',
+    'Search messages in a mailbox by keyword, sender, subject, date range, and read status.',
+    {
+      mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
+      q: z.string().optional().describe('Full-text search keyword'),
+      from: z.string().optional().describe('Filter by sender address'),
+      subject: z.string().optional().describe('Filter by subject line'),
+      since: z.string().optional().describe('ISO 8601 date — return messages on or after this date'),
+      before: z.string().optional().describe('ISO 8601 date — return messages before this date'),
+      unseen: z.boolean().optional().describe('Only return unread messages'),
+      limit: z.number().int().positive().optional().describe('Maximum number of results to return'),
+    },
+    async ({
+      mailbox,
+      q,
+      from,
+      subject,
+      since,
+      before,
+      unseen,
+      limit,
+    }: {
+      mailbox: string;
+      q?: string;
+      from?: string;
+      subject?: string;
+      since?: string;
+      before?: string;
+      unseen?: boolean;
+      limit?: number;
+    }) => {
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (from) params.set('from', from);
+      if (subject) params.set('subject', subject);
+      if (since) params.set('since', since);
+      if (before) params.set('before', before);
+      if (unseen) params.set('unseen', 'true');
+      if (limit !== undefined) params.set('limit', String(limit));
+      const qs = params.toString();
+      const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages/search${qs ? `?${qs}` : ''}`;
+      const { status, data } = await callImaprest(cfg.imaprestUrl, 'GET', path, hdrs.imap);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
   return server;
 }
 

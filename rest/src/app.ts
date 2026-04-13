@@ -2,6 +2,8 @@ import Fastify, { FastifyInstance } from "fastify";
 import { healthRoutes } from "./routes/health";
 import { mailboxRoutes } from "./routes/mailboxes";
 import { messagesRoutes } from "./routes/messages";
+import { moveCopyRoutes } from "./routes/move-copy";
+import { searchRoutes } from "./routes/search";
 import { sendRoutes } from "./routes/send";
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -14,8 +16,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(healthRoutes);
   await app.register(mailboxRoutes);
+  await app.register(searchRoutes);
   await app.register(messagesRoutes);
   await app.register(sendRoutes);
+  await app.register(moveCopyRoutes);
 
   return app;
 }
