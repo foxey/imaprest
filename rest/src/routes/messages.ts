@@ -55,9 +55,19 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
           return reply.send([]);
         }
 
+        const limitStr = request.query.limit;
+        const limitNum = limitStr ? parseInt(limitStr, 10) : undefined;
+        if (limitStr !== undefined && (isNaN(limitNum!) || limitNum! < 1)) {
+          return reply.status(400).send({ error: "'limit' must be a positive integer" });
+        }
+
+        // Take the most recent UIDs (highest = newest) and cap to limit
+        const sortedUids = uids.sort((a, b) => b - a);
+        const fetchUids = limitNum ? sortedUids.slice(0, limitNum) : sortedUids;
+
         const messages: MessageSummary[] = [];
         for await (const msg of client.fetch(
-          uids,
+          fetchUids,
           { uid: true, envelope: true, flags: true },
           { uid: true }
         )) {
