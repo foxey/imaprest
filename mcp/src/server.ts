@@ -76,8 +76,10 @@ async function callImaprest(
 
 // ---------------------------------------------------------------------------
 // Tool input schemas
-// Defined at module level to avoid TS2589 (type instantiation too deep)
-// when TypeScript infers through MCP SDK + Zod generics at the call site.
+// Defined at module level so TypeScript computes each type once and caches it.
+// Passed as `shape as any` to server.tool() to avoid tsc OOM: the MCP SDK +
+// Zod generic chain is too deep for tsc to infer inline without exhausting
+// the heap. The callback args are still explicitly typed via z.infer<>.
 // ---------------------------------------------------------------------------
 
 const listMessagesInput = z.object({
@@ -127,7 +129,8 @@ function buildMcpServer(): McpServer {
   server.tool(
     'list_messages',
     'List messages in a mailbox, with optional filters.',
-    listMessagesInput.shape,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    listMessagesInput.shape as any,
     async ({ mailbox, unseen, from, since, limit }: z.infer<typeof listMessagesInput>) => {
       const params = new URLSearchParams();
       if (unseen) params.set('unseen', 'true');
@@ -190,7 +193,8 @@ function buildMcpServer(): McpServer {
   server.tool(
     'mark_message',
     'Mark a message as seen or unseen.',
-    markMessageInput.shape,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    markMessageInput.shape as any,
     async ({ mailbox, uid, seen }: z.infer<typeof markMessageInput>) => {
       const { status, data } = await callImaprest(
         'PATCH',
@@ -232,7 +236,8 @@ function buildMcpServer(): McpServer {
   server.tool(
     'send_email',
     'Compose and send a new email.',
-    sendEmailInput.shape,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sendEmailInput.shape as any,
     async ({ to, subject, text, html, cc }: z.infer<typeof sendEmailInput>) => {
       const { status, data } = await callImaprest('POST', '/send', SMTP_HEADERS, {
         to,
