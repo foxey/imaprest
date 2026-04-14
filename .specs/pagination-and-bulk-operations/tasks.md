@@ -6,11 +6,11 @@
     - **Property 5: Invalid UID arrays are rejected**
     - **Validates: Requirements 4.3, 4.4, 5.3, 5.4, 10.3, 10.4, 11.3, 11.4**
 
-- [ ] 2. Checkpoint — Ensure all tests pass
+- [x] 2. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 3. Add pagination to message listing endpoint
-  - [ ] 3.1 Update `rest/src/routes/messages.ts` GET `/mailboxes/:mailbox/messages` handler
+  - [x] 3.1 Update `rest/src/routes/messages.ts` GET `/mailboxes/:mailbox/messages` handler
     - Import `validatePaginationParams` from `validate.ts` and `paginateUids`, `buildUidRangeCriteria` from `paginate.ts`
     - Extract `cursor` and `limit` from query params, validate with `validatePaginationParams`
     - After `mailboxOpen`, use `buildUidRangeCriteria(cursor, limit, client.mailbox.uidNext)` to build the UID range criteria
@@ -30,7 +30,7 @@
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3_
 
 - [ ] 4. Add pagination to search endpoint
-  - [ ] 4.1 Update `rest/src/routes/search.ts` GET `/mailboxes/:mailbox/messages/search` handler
+  - [x] 4.1 Update `rest/src/routes/search.ts` GET `/mailboxes/:mailbox/messages/search` handler
     - Import `validatePaginationParams` from `validate.ts` and `paginateUids`, `buildUidRangeCriteria` from `paginate.ts`
     - Extract `cursor` and `limit` from query params, validate with `validatePaginationParams`
     - Use `buildUidRangeCriteria` for tight UID range, merge with existing search criteria
@@ -43,11 +43,11 @@
     - Cursor combined with search criteria
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 5. Checkpoint — Ensure all tests pass
+- [x] 5. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 6. Implement bulk mark endpoint
-  - [ ] 6.1 Create `rest/src/routes/bulk.ts` with PATCH `/mailboxes/:mailbox/messages` handler
+  - [x] 6.1 Create `rest/src/routes/bulk.ts` with PATCH `/mailboxes/:mailbox/messages` handler
     - Import `validateUidArray` from `validate.ts`
     - Extract and validate credentials/IMAP config (same pattern as existing routes)
     - Validate request body: `uids` via `validateUidArray`, `seen` and `flagged` as optional booleans, at least one required
@@ -56,7 +56,7 @@
     - Disconnect IMAP client in `finally` block
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 13.1, 13.2, 13.3_
 
-  - [ ] 6.2 Register `bulkRoutes` in `rest/src/app.ts`
+  - [x] 6.2 Register `bulkRoutes` in `rest/src/app.ts`
     - Import and register the new `bulkRoutes` plugin
     - _Requirements: 4.1, 5.1, 6.1_
 
@@ -74,7 +74,7 @@
     - **Validates: Requirements 4.1, 4.2, 5.1, 5.2, 6.1, 6.2**
 
 - [ ] 7. Implement bulk move endpoint
-  - [ ] 7.1 Add POST `/mailboxes/:mailbox/messages/move` handler to `rest/src/routes/bulk.ts`
+  - [x] 7.1 Add POST `/mailboxes/:mailbox/messages/move` handler to `rest/src/routes/bulk.ts`
     - Validate `uids` via `validateUidArray`, validate `destination` (non-empty string, differs from source mailbox)
     - Open mailbox, call `client.messageMove(uids, destination, { uid: true })`
     - Handle TRYCREATE errors → 404
@@ -94,7 +94,7 @@
     - **Validates: Requirements 10.1, 10.2**
 
 - [ ] 8. Implement bulk copy endpoint
-  - [ ] 8.1 Add POST `/mailboxes/:mailbox/messages/copy` handler to `rest/src/routes/bulk.ts`
+  - [x] 8.1 Add POST `/mailboxes/:mailbox/messages/copy` handler to `rest/src/routes/bulk.ts`
     - Validate `uids` via `validateUidArray`, validate `destination` (non-empty string)
     - Open mailbox, call `client.messageCopy(uids, destination, { uid: true })`
     - Handle TRYCREATE errors → 404
@@ -111,29 +111,29 @@
     - **Property 8: Bulk copy delegates to ImapFlow and returns UID mapping**
     - **Validates: Requirements 11.1, 11.2**
 
-- [ ] 9. Checkpoint — Ensure all tests pass
+- [x] 9. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Update MCP server tools
-  - [ ] 10.1 Update `list_messages` and `search_messages` tools in `mcp/src/app.ts`
+  - [x] 10.1 Update `list_messages` and `search_messages` tools in `mcp/src/app.ts`
     - Add optional `cursor` parameter (z.number().int().positive().optional()) to both tools
     - Forward `cursor` as query parameter in the delegated GET request
     - The paginated response from the REST API is already returned as a text content block
     - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2, 8.3_
 
-  - [ ] 10.2 Add `bulk_mark_messages` tool to `mcp/src/app.ts`
+  - [x] 10.2 Add `bulk_mark_messages` tool to `mcp/src/app.ts`
     - Accepts `mailbox` (string), `uids` (array of positive ints), optional `seen` (boolean), optional `flagged` (boolean)
     - Delegates to `PATCH /mailboxes/:mailbox/messages` on the REST API
     - Returns response as text content block, sets `isError` on status >= 400
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 10.3 Add `bulk_move_messages` and `bulk_copy_messages` tools to `mcp/src/app.ts`
+  - [x] 10.3 Add `bulk_move_messages` and `bulk_copy_messages` tools to `mcp/src/app.ts`
     - `bulk_move_messages`: accepts `mailbox`, `uids`, `destination`; delegates to `POST /mailboxes/:mailbox/messages/move`
     - `bulk_copy_messages`: accepts `mailbox`, `uids`, `destination`; delegates to `POST /mailboxes/:mailbox/messages/copy`
     - Both return response as text content block, set `isError` on status >= 400
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
-- [ ] 11. Final checkpoint — Ensure all tests pass
+- [x] 11. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

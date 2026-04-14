@@ -5,11 +5,13 @@ import {
   extractImapConfig,
 } from "../lib/credentials";
 import { createImapClient, disconnectImapClient } from "../lib/imap";
+import { buildUidRangeCriteria, paginateUids } from "../lib/paginate";
 import {
   SearchParams,
   validateSearchParams,
   buildSearchCriteria,
 } from "../lib/search";
+import { validatePaginationParams } from "../lib/validate";
 
 interface MessageSummary {
   uid: number;
@@ -20,12 +22,13 @@ interface MessageSummary {
 }
 
 type MailboxParams = { mailbox: string };
+type SearchQuerystring = SearchParams & { cursor?: string };
 
 export async function searchRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Params: MailboxParams; Querystring: SearchParams }>(
+  app.get<{ Params: MailboxParams; Querystring: SearchQuerystring }>(
     "/mailboxes/:mailbox/messages/search",
     async (
-      request: FastifyRequest<{ Params: MailboxParams; Querystring: SearchParams }>,
+      request: FastifyRequest<{ Params: MailboxParams; Querystring: SearchQuerystring }>,
       reply: FastifyReply
     ) => {
       let creds;
@@ -46,26 +49,40 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: (err as Error).message });
       }
 
-      const criteria = buildSearchCriteria(request.query);
+      let pagination;
+      try {
+        pagination = validatePaginationParams(request.query.cursor, request.query.limit);
+      } catch (err) {
+        return reply.status(400).send({ error: (err as Error).message });
+      }
 
-      const limitStr = request.query.limit;
-      const limit = limitStr ? parseInt(limitStr, 10) : 50;
+      const criteria = buildSearchCriteria(request.query);
 
       const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
 
-        const uids = await client.search(criteria, { uid: true });
+        const mailbox = client.mailbox;
+        const uidNext = mailbox ? mailbox.uidNext : 1;
+
+        const uidRangeCriteria = buildUidRangeCriteria(
+          pagination.cursor,
+          pagination.limit,
+          uidNext,
+        );
+
+        const mergedCriteria = { ...criteria, ...uidRangeCriteria };
+
+        const uids = await client.search(mergedCriteria, { uid: true });
         if (!uids || uids.length === 0) {
-          return reply.send([]);
+          return reply.send({ messages: [], nextCursor: null, hasMore: false });
         }
 
-        const sortedUids = uids.sort((a, b) => b - a);
-        const fetchUids = sortedUids.slice(0, limit);
+        const page = paginateUids(uids, pagination.limit);
 
         const messages: MessageSummary[] = [];
         for await (const msg of client.fetch(
-          fetchUids,
+          page.uids,
           { uid: true, envelope: true, flags: true },
           { uid: true }
         )) {
@@ -78,9 +95,11 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
           });
         }
 
-        messages.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        return reply.send(messages);
+        return reply.send({
+          messages,
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+        });
       } finally {
         await disconnectImapClient(client);
       }
