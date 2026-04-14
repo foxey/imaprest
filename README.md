@@ -295,6 +295,7 @@ Point your MCP client at `http://<host>:3001/mcp`. Example NanoClaw config:
 {
   "mcpServers": {
     "imaprest": {
+      "type": "http",
       "url": "http://172.17.0.1:3001/mcp"
     }
   }
@@ -322,3 +323,5 @@ npm test
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+
