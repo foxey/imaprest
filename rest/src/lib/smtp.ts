@@ -1,6 +1,12 @@
 import nodemailer from "nodemailer";
 import { SmtpConfig } from "./credentials";
 
+export interface MailAttachment {
+  filename: string;
+  contentType: string;
+  content: Buffer;
+}
+
 export interface MailOptions {
   from: string;
   to: string[];
@@ -10,6 +16,7 @@ export interface MailOptions {
   html?: string | null;
   inReplyTo?: string | null;
   references?: string[];
+  attachments?: MailAttachment[];
 }
 
 export async function sendMail(
@@ -36,6 +43,15 @@ export async function sendMail(
     ...(mail.inReplyTo ? { inReplyTo: mail.inReplyTo } : {}),
     ...(mail.references && mail.references.length > 0
       ? { references: mail.references.join(" ") }
+      : {}),
+    ...(mail.attachments && mail.attachments.length > 0
+      ? {
+          attachments: mail.attachments.map((a) => ({
+            filename: a.filename,
+            contentType: a.contentType,
+            content: a.content,
+          })),
+        }
       : {}),
   });
 }

@@ -5,6 +5,7 @@ import {
   extractSmtpConfig,
 } from "../lib/credentials";
 import { sendMail } from "../lib/smtp";
+import { validateAttachments } from "../lib/validate";
 
 interface SendBody {
   to?: unknown;
@@ -12,6 +13,7 @@ interface SendBody {
   subject?: unknown;
   text?: unknown;
   html?: unknown;
+  attachments?: unknown;
 }
 
 export async function sendRoutes(app: FastifyInstance): Promise<void> {
@@ -79,6 +81,15 @@ export async function sendRoutes(app: FastifyInstance): Promise<void> {
           .send({ error: "'cc' must be an array of strings" });
       }
 
+      let validatedAttachments;
+      if (body.attachments && Array.isArray(body.attachments) && body.attachments.length > 0) {
+        try {
+          validatedAttachments = validateAttachments(body.attachments);
+        } catch (err) {
+          return reply.status(400).send({ error: (err as Error).message });
+        }
+      }
+
       await sendMail(
         { user: creds.user, password: creds.password },
         smtp,
@@ -89,6 +100,7 @@ export async function sendRoutes(app: FastifyInstance): Promise<void> {
           subject: body.subject as string,
           text: typeof body.text === "string" ? body.text : null,
           html: typeof body.html === "string" ? body.html : null,
+          ...(validatedAttachments ? { attachments: validatedAttachments } : {}),
         }
       );
 

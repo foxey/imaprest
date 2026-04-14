@@ -21,6 +21,52 @@ export interface ParsedMessage {
   references: string[];
 }
 
+export function htmlToMarkdown(html: string): string {
+  return html
+    // Block-level elements first
+    .replace(/<h([1-6])[^>]*>(.*?)<\/h\1>/gi, (_, level, content) =>
+      '#'.repeat(Number(level)) + ' ' + content.trim() + '\n\n')
+    // Bold / strong
+    .replace(/<(b|strong)[^>]*>(.*?)<\/\1>/gi, '**$2**')
+    // Italic / em
+    .replace(/<(i|em)[^>]*>(.*?)<\/\1>/gi, '*$2*')
+    // Strikethrough
+    .replace(/<(s|strike|del)[^>]*>(.*?)<\/\1>/gi, '~~$2~~')
+    // Code
+    .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
+    // Links: <a href="url">text</a> → [text](url)
+    .replace(/<a[^>]+href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
+    // List items
+    .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
+    // Strip <ul>, <ol> wrappers (adds spacing around list blocks)
+    .replace(/<\/?(ul|ol)[^>]*>/gi, '\n')
+    // Blockquote
+    .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (_, content) =>
+      content.trim().split('\n').map((line: string) => '> ' + line).join('\n') + '\n\n')
+    // Horizontal rule
+    .replace(/<hr[^>]*\/?>/gi, '\n---\n')
+    // Line breaks
+    .replace(/<br\s*\/?>/gi, '\n')
+    // Paragraphs
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<p[^>]*>/gi, '')
+    // Divs as line breaks
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<div[^>]*>/gi, '')
+    // Strip remaining HTML tags
+    .replace(/<[^>]*>/g, '')
+    // Decode common HTML entities
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    // Clean up excessive whitespace
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function formatAddresses(
   addr: AddressObject | AddressObject[] | undefined
 ): string[] {
@@ -45,7 +91,7 @@ export async function parseRawMessage(
     to: formatAddresses(parsed.to as AddressObject | AddressObject[] | undefined),
     cc: formatAddresses(parsed.cc as AddressObject | AddressObject[] | undefined),
     subject: parsed.subject ?? "",
-    text: parsed.text ?? null,
+    text: parsed.text ?? (typeof parsed.html === 'string' ? htmlToMarkdown(parsed.html) : null),
     html: typeof parsed.html === "string" ? parsed.html : null,
     attachments: (parsed.attachments ?? [])
       .filter((a) => a.contentDisposition === "attachment" || !!a.filename)
