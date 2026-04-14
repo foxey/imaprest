@@ -13,8 +13,8 @@ export interface ImapSearchCriteria {
   from?: string;
   subject?: string;
   body?: string;
-  since?: Date;
-  before?: Date;
+  sentSince?: Date;
+  sentBefore?: Date;
 }
 
 export function validateSearchParams(params: SearchParams): void {
@@ -84,7 +84,7 @@ export function buildSearchCriteria(params: SearchParams): ImapSearchCriteria {
     if (isNaN(date.getTime())) {
       throw new Error("Invalid 'since' parameter — must be ISO-8601");
     }
-    criteria.since = date;
+    criteria.sentSince = date;
   }
 
   if (params.before) {
@@ -92,7 +92,7 @@ export function buildSearchCriteria(params: SearchParams): ImapSearchCriteria {
     if (isNaN(date.getTime())) {
       throw new Error("Invalid 'before' parameter — must be ISO-8601");
     }
-    criteria.before = date;
+    criteria.sentBefore = date;
   }
 
   return criteria;
