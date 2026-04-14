@@ -10,7 +10,7 @@ services:
   imaprest-mcp:
     build: ./mcp
     ports:
-      - "3001:3001"
+      - "172.17.0.1:3001:3001"
     environment:
       PORT: "3001"
       IMAPREST_URL: "http://imaprest:3000"
