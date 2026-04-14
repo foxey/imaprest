@@ -147,11 +147,25 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     await app.close();
   });
 
-  it("merges UID range criteria with search criteria", async () => {
+  it("does not apply UID range on first page of filtered search", async () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
       url: "/mailboxes/INBOX/messages/search?from=alice%40example.com",
+      headers: CRED_HEADERS,
+    });
+    expect(mockClient.search).toHaveBeenCalledWith(
+      { from: "alice@example.com" },
+      { uid: true }
+    );
+    await app.close();
+  });
+
+  it("applies UID range when cursor is provided with search criteria", async () => {
+    const app = await buildApp();
+    await app.inject({
+      method: "GET",
+      url: "/mailboxes/INBOX/messages/search?from=alice%40example.com&cursor=50",
       headers: CRED_HEADERS,
     });
     expect(mockClient.search).toHaveBeenCalledWith(
