@@ -22,6 +22,8 @@ export async function sendMail(
     port: smtp.port,
     secure: smtp.tls,
     auth: { user: auth.user, pass: auth.password },
+    connectionTimeout: 10_000,
+    socketTimeout: 30_000,
   });
 
   await transporter.sendMail({
