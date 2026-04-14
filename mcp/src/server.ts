@@ -8,8 +8,8 @@ const cfg: McpAppConfig = {
   imapPort: process.env.MAIL_IMAP_PORT ?? '993',
   imapTls: process.env.MAIL_IMAP_TLS ?? 'true',
   smtpHost: process.env.MAIL_SMTP_HOST ?? '',
-  smtpPort: process.env.MAIL_SMTP_PORT ?? '587',
-  smtpTls: process.env.MAIL_SMTP_TLS ?? 'false',
+  smtpPort: process.env.MAIL_SMTP_PORT ?? '465',
+  smtpTls: process.env.MAIL_SMTP_TLS ?? 'true',
 };
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
