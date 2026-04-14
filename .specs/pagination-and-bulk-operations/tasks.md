@@ -1,4 +1,18 @@
+# Tasks — Paginated Listing & Bulk Operations
 
+- [x] 1. Create pagination and validation utilities
+  - [x] 1.1 Create `rest/src/lib/paginate.ts`
+    - Export `paginateUids(uids, limit)` — sorts descending, applies +1 overfetch logic, returns `{ uids, nextCursor, hasMore }`
+    - Export `buildUidRangeCriteria(cursor, limit, uidNext)` — builds tight UID range for IMAP search
+    - _Requirements: 1.1, 1.2, 1.3, 1.5, 1.6, 1.7, 3.1, 3.3, 3.4_
+
+  - [x] 1.2 Create `rest/src/lib/validate.ts`
+    - Export `validatePaginationParams(cursor?, limit?)` — parses and validates cursor/limit, defaults limit to 50, caps at 100
+    - Export `validateUidArray(uids)` — validates non-empty array of positive integers, max 100 entries
+    - _Requirements: 2.1, 2.2, 2.3, 4.3, 4.4, 5.3, 5.4, 10.3, 10.4, 11.3, 11.4_
+
+  - [x] 1.3 Install `fast-check` as a dev dependency in `rest/`
+    - _Supports property-based testing for correctness properties_
 
   - [ ]* 1.4 Write property tests for validation logic (`rest/test/lib/validate.property.test.ts`)
     - **Property 4: Invalid pagination parameters are rejected**
