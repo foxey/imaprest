@@ -65,8 +65,8 @@ Every request must include:
 | Header | Default | Description |
 |--------|---------|-------------|
 | `X-SMTP-Host` | *(required)* | SMTP server hostname |
-| `X-SMTP-Port` | `587` | SMTP port |
-| `X-SMTP-TLS` | `false` | Use TLS (`true`/`false`) |
+| `X-SMTP-Port` | `465` | SMTP port |
+| `X-SMTP-TLS` | `true` | Use TLS (`true`/`false`) |
 
 ## Endpoints
 
@@ -81,15 +81,24 @@ List all mailboxes.
 ### Messages
 
 ```
-GET    /mailboxes/:mailbox/messages               # list messages (paginated)
-GET    /mailboxes/:mailbox/messages/search        # search messages (paginated)
-GET    /mailboxes/:mailbox/messages/:uid          # get full message
-DELETE /mailboxes/:mailbox/messages/:uid          # move message to Trash
-PATCH  /mailboxes/:mailbox/messages/:uid          # update flags, e.g. { "seen": true }
-POST   /mailboxes/:mailbox/messages/:uid/reply    # reply to a message
-POST   /mailboxes/:mailbox/messages/:uid/move     # move single message
-POST   /mailboxes/:mailbox/messages/:uid/copy     # copy single message
+GET    /mailboxes/:mailbox/messages                              # list messages (paginated)
+GET    /mailboxes/:mailbox/messages/search                       # search messages (paginated)
+GET    /mailboxes/:mailbox/messages/:uid                         # get full message
+GET    /mailboxes/:mailbox/messages/:uid/attachments/:index      # download attachment (returns binary)
+DELETE /mailboxes/:mailbox/messages/:uid                         # move message to Trash
+PATCH  /mailboxes/:mailbox/messages/:uid                         # update flags, e.g. { "seen": true }
+POST   /mailboxes/:mailbox/messages/:uid/reply                   # reply to a message
+POST   /mailboxes/:mailbox/messages/:uid/move                    # move single message
+POST   /mailboxes/:mailbox/messages/:uid/copy                    # copy single message
 ```
+
+### Threads
+
+```
+GET /mailboxes/:mailbox/thread/:messageId
+```
+
+Retrieve all messages in a conversation thread by `Message-ID` header value.
 
 #### Pagination
 
@@ -99,6 +108,7 @@ The listing and search endpoints support cursor-based pagination:
 |-----------|---------|-------------|
 | `cursor` | — | UID cursor; returns messages with UID < cursor |
 | `limit` | `50` | Page size (max 100) |
+| `sort` | `desc` | Sort order: `asc` (oldest first) or `desc` (newest first) |
 
 Response shape:
 
@@ -110,7 +120,19 @@ Response shape:
 }
 ```
 
+#### List filters
+
+The list endpoint accepts optional query parameters to pre-filter results:
+
+| Parameter | Description |
+|-----------|-------------|
+| `from` | Filter by sender address |
+| `since` | Messages sent on or after this ISO-8601 date |
+| `unseen` | Only unread messages (`true`) |
+
 #### Search parameters
+
+The dedicated search endpoint supports richer filtering:
 
 | Parameter | Description |
 |-----------|-------------|
@@ -124,7 +146,7 @@ Response shape:
 ### Bulk Operations
 
 ```
-PATCH /mailboxes/:mailbox/messages                # bulk mark seen/flagged
+PATCH /mailboxes/:mailbox/messages                # bulk mark seen/unseen and/or flagged/unflagged
 POST  /mailboxes/:mailbox/messages/move           # bulk move to another mailbox
 POST  /mailboxes/:mailbox/messages/copy           # bulk copy to another mailbox
 ```
@@ -139,6 +161,8 @@ Bulk mark body:
 }
 ```
 
+At least one of `seen` or `flagged` must be provided. All bulk endpoints cap `uids` at 100 entries per request.
+
 Bulk move/copy body:
 
 ```json
@@ -147,8 +171,6 @@ Bulk move/copy body:
   "destination": "Archive"
 }
 ```
-
-All bulk endpoints cap `uids` at 100 entries per request.
 
 ### Send
 
@@ -164,11 +186,41 @@ Body:
   "cc": ["cc@example.com"],
   "subject": "Hello",
   "text": "Plain text body",
-  "html": "<p>HTML body</p>"
+  "html": "<p>HTML body</p>",
+  "attachments": [
+    {
+      "filename": "report.pdf",
+      "contentType": "application/pdf",
+      "content": "<base64-encoded content>"
+    }
+  ]
 }
 ```
 
-`to` is required; `cc`, `text`, and `html` are optional (at least one of `text`/`html` must be provided).
+`to` and `subject` are required; `cc`, `text`, `html`, and `attachments` are optional (at least one of `text`/`html` must be provided).
+
+### Reply
+
+```
+POST /mailboxes/:mailbox/messages/:uid/reply
+```
+
+Body:
+
+```json
+{
+  "text": "Plain text reply",
+  "attachments": [
+    {
+      "filename": "file.txt",
+      "contentType": "text/plain",
+      "content": "<base64-encoded content>"
+    }
+  ]
+}
+```
+
+`text` is required; `attachments` is optional.
 
 ## Development
 
