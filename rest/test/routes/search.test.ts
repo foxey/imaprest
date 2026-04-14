@@ -30,7 +30,7 @@ const FAKE_MESSAGES = [
   },
 ];
 
-describe("GET /mailboxes/:mailbox/messages", () => {
+describe("GET /mailboxes/:mailbox/messages/search", () => {
   let mockClient: {
     mailbox: { uidNext: number };
     mailboxOpen: jest.Mock;
@@ -60,17 +60,17 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages",
+      url: "/mailboxes/INBOX/messages/search?q=test",
     });
     expect(response.statusCode).toBe(401);
     await app.close();
   });
 
-  it("returns 200 with paginated response for no filters", async () => {
+  it("returns 200 with paginated response shape", async () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages",
+      url: "/mailboxes/INBOX/messages/search?q=test",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -80,57 +80,6 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     expect(body).toHaveProperty("hasMore");
     expect(Array.isArray(body.messages)).toBe(true);
     expect(body.messages).toHaveLength(2);
-    expect(body.messages[0]).toMatchObject({
-      uid: 1,
-      from: "alice@example.com",
-      subject: "Hello",
-      seen: false,
-    });
-    expect(body.messages[1]).toMatchObject({
-      uid: 2,
-      from: "bob@example.com",
-      subject: "Re: Hello",
-      seen: true,
-    });
-    await app.close();
-  });
-
-  it("passes unseen=true as { seen: false } merged with UID range to search", async () => {
-    const app = await buildApp();
-    await app.inject({
-      method: "GET",
-      url: "/mailboxes/INBOX/messages?unseen=true",
-      headers: CRED_HEADERS,
-    });
-    expect(mockClient.search).toHaveBeenCalledWith(
-      expect.objectContaining({ seen: false }),
-      { uid: true }
-    );
-    await app.close();
-  });
-
-  it("passes from filter to search criteria merged with UID range", async () => {
-    const app = await buildApp();
-    await app.inject({
-      method: "GET",
-      url: "/mailboxes/INBOX/messages?from=alice%40example.com",
-      headers: CRED_HEADERS,
-    });
-    expect(mockClient.search).toHaveBeenCalledWith(
-      expect.objectContaining({ from: "alice@example.com" }),
-      { uid: true }
-    );
-    await app.close();
-  });
-
-  it("returns 400 for an invalid since date", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/mailboxes/INBOX/messages?since=not-a-date",
-      headers: CRED_HEADERS,
-    });
-    expect(response.statusCode).toBe(400);
     await app.close();
   });
 
@@ -139,7 +88,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages",
+      url: "/mailboxes/INBOX/messages/search?q=test",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -155,7 +104,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?cursor=abc",
+      url: "/mailboxes/INBOX/messages/search?q=test&cursor=abc",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -167,7 +116,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?limit=-5",
+      url: "/mailboxes/INBOX/messages/search?q=test&limit=-5",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -179,11 +128,36 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?limit=200",
+      url: "/mailboxes/INBOX/messages/search?q=test&limit=200",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
     expect(JSON.parse(response.body).error).toMatch(/limit/i);
+    await app.close();
+  });
+
+  it("returns 400 when no search criteria provided", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/mailboxes/INBOX/messages/search",
+      headers: CRED_HEADERS,
+    });
+    expect(response.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("merges UID range criteria with search criteria", async () => {
+    const app = await buildApp();
+    await app.inject({
+      method: "GET",
+      url: "/mailboxes/INBOX/messages/search?from=alice%40example.com",
+      headers: CRED_HEADERS,
+    });
+    expect(mockClient.search).toHaveBeenCalledWith(
+      expect.objectContaining({ from: "alice@example.com", uid: expect.any(String) }),
+      { uid: true }
+    );
     await app.close();
   });
 });

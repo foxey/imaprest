@@ -114,6 +114,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       from: z.string().optional().describe('Filter by sender address'),
       since: z.string().optional().describe('ISO 8601 date — return messages since this date'),
       limit: z.number().int().positive().optional().describe('Maximum number of messages to return'),
+      cursor: z.number().int().positive().optional().describe('Pagination cursor — UID to start from (exclusive, returns older messages)'),
     },
     async ({
       mailbox,
@@ -121,18 +122,21 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       from,
       since,
       limit,
+      cursor,
     }: {
       mailbox: string;
       unseen?: boolean;
       from?: string;
       since?: string;
       limit?: number;
+      cursor?: number;
     }) => {
       const params = new URLSearchParams();
       if (unseen) params.set('unseen', 'true');
       if (from) params.set('from', from);
       if (since) params.set('since', since);
       if (limit !== undefined) params.set('limit', String(limit));
+      if (cursor !== undefined) params.set('cursor', String(cursor));
       const qs = params.toString();
       const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages${qs ? `?${qs}` : ''}`;
       const { status, data } = await callImaprest(cfg.imaprestUrl, 'GET', path, hdrs.imap);
@@ -203,6 +207,34 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}`,
         hdrs.imap,
         { seen },
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
+  // bulk_mark_messages
+  server.tool(
+    'bulk_mark_messages',
+    'Mark multiple messages as seen/unseen and/or flagged/unflagged in bulk.',
+    {
+      mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
+      uids: z.array(z.number().int().positive()).describe('Array of message UIDs to update'),
+      seen: z.boolean().optional().describe('true = mark as seen, false = mark as unseen'),
+      flagged: z.boolean().optional().describe('true = flag, false = unflag'),
+    },
+    async ({ mailbox, uids, seen, flagged }: { mailbox: string; uids: number[]; seen?: boolean; flagged?: boolean }) => {
+      const body: Record<string, unknown> = { uids };
+      if (seen !== undefined) body.seen = seen;
+      if (flagged !== undefined) body.flagged = flagged;
+      const { status, data } = await callImaprest(
+        cfg.imaprestUrl,
+        'PATCH',
+        `/mailboxes/${encodeURIComponent(mailbox)}/messages`,
+        hdrs.imap,
+        body,
       );
       return {
         content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
@@ -321,6 +353,54 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
     },
   );
 
+  // bulk_move_messages
+  server.tool(
+    'bulk_move_messages',
+    'Move multiple messages from one mailbox to another.',
+    {
+      mailbox: z.string().describe('Source mailbox name, e.g. INBOX'),
+      uids: z.array(z.number().int().positive()).describe('Array of message UIDs to move'),
+      destination: z.string().describe('Destination mailbox name'),
+    },
+    async ({ mailbox, uids, destination }: { mailbox: string; uids: number[]; destination: string }) => {
+      const { status, data } = await callImaprest(
+        cfg.imaprestUrl,
+        'POST',
+        `/mailboxes/${encodeURIComponent(mailbox)}/messages/move`,
+        hdrs.imap,
+        { uids, destination },
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
+  // bulk_copy_messages
+  server.tool(
+    'bulk_copy_messages',
+    'Copy multiple messages from one mailbox to another.',
+    {
+      mailbox: z.string().describe('Source mailbox name, e.g. INBOX'),
+      uids: z.array(z.number().int().positive()).describe('Array of message UIDs to copy'),
+      destination: z.string().describe('Destination mailbox name'),
+    },
+    async ({ mailbox, uids, destination }: { mailbox: string; uids: number[]; destination: string }) => {
+      const { status, data } = await callImaprest(
+        cfg.imaprestUrl,
+        'POST',
+        `/mailboxes/${encodeURIComponent(mailbox)}/messages/copy`,
+        hdrs.imap,
+        { uids, destination },
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
   // search_messages
   server.tool(
     'search_messages',
@@ -334,6 +414,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       before: z.string().optional().describe('ISO 8601 date — return messages before this date'),
       unseen: z.boolean().optional().describe('Only return unread messages'),
       limit: z.number().int().positive().optional().describe('Maximum number of results to return'),
+      cursor: z.number().int().positive().optional().describe('Pagination cursor — UID to start from (exclusive, returns older messages)'),
     },
     async ({
       mailbox,
@@ -344,6 +425,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       before,
       unseen,
       limit,
+      cursor,
     }: {
       mailbox: string;
       q?: string;
@@ -353,6 +435,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       before?: string;
       unseen?: boolean;
       limit?: number;
+      cursor?: number;
     }) => {
       const params = new URLSearchParams();
       if (q) params.set('q', q);
@@ -362,6 +445,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       if (before) params.set('before', before);
       if (unseen) params.set('unseen', 'true');
       if (limit !== undefined) params.set('limit', String(limit));
+      if (cursor !== undefined) params.set('cursor', String(cursor));
       const qs = params.toString();
       const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages/search${qs ? `?${qs}` : ''}`;
       const { status, data } = await callImaprest(cfg.imaprestUrl, 'GET', path, hdrs.imap);

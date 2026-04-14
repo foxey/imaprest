@@ -5,6 +5,7 @@ import { messagesRoutes } from "./routes/messages";
 import { moveCopyRoutes } from "./routes/move-copy";
 import { searchRoutes } from "./routes/search";
 import { sendRoutes } from "./routes/send";
+import { bulkRoutes } from "./routes/bulk";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -20,6 +21,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(messagesRoutes);
   await app.register(sendRoutes);
   await app.register(moveCopyRoutes);
+  await app.register(bulkRoutes);
 
   return app;
 }
