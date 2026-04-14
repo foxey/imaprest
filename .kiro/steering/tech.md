@@ -9,7 +9,7 @@
 - **IMAP**: imapflow
 - **Email parsing**: mailparser
 - **SMTP**: nodemailer
-- **Testing**: Jest + ts-jest (mocks for IMAP/SMTP libs)
+- **Testing**: Jest + ts-jest + fast-check (mocks for IMAP/SMTP libs, property-based testing)
 - **Linting**: ESLint 9 with @typescript-eslint
 
 ## mcp service

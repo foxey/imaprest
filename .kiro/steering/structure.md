@@ -9,19 +9,25 @@
 │   │   ├── lib/                # Shared utilities
 │   │   │   ├── credentials.ts  # Header extraction & validation for auth/IMAP/SMTP config
 │   │   │   ├── imap.ts         # ImapFlow client creation & teardown
+│   │   │   ├── paginate.ts     # Cursor-based pagination (paginateUids, buildUidRangeCriteria)
 │   │   │   ├── parse.ts        # Raw email → ParsedMessage via mailparser
 │   │   │   ├── search.ts       # Query param → IMAP search criteria
-│   │   │   └── smtp.ts         # nodemailer send helper
+│   │   │   ├── smtp.ts         # nodemailer send helper
+│   │   │   └── validate.ts     # Pagination param & UID array validation
 │   │   └── routes/             # Fastify route plugins (one file per resource)
+│   │       ├── bulk.ts         # Bulk mark, move, copy operations
 │   │       ├── health.ts
 │   │       ├── mailboxes.ts
-│   │       ├── messages.ts     # CRUD + reply for messages
+│   │       ├── messages.ts     # CRUD + reply for messages (paginated listing)
+│   │       ├── move-copy.ts    # Single-message move & copy
+│   │       ├── search.ts       # Search messages (paginated)
 │   │       └── send.ts
 │   └── test/
 │       └── routes/             # Jest tests mirroring routes (one test file per route/verb)
 ├── mcp/                        # MCP server wrapping the REST API
 │   └── src/
-│       └── server.ts           # Single-file MCP server (tools, HTTP handler)
+│       ├── app.ts              # MCP server factory, tools, HTTP handler
+│       └── server.ts           # Entry point — starts the HTTP server
 └── .kiro/
     └── steering/               # AI assistant steering rules
 ```

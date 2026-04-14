@@ -81,12 +81,74 @@ List all mailboxes.
 ### Messages
 
 ```
-GET    /mailboxes/:mailbox/messages               # list messages (supports search query params)
+GET    /mailboxes/:mailbox/messages               # list messages (paginated)
+GET    /mailboxes/:mailbox/messages/search        # search messages (paginated)
 GET    /mailboxes/:mailbox/messages/:uid          # get full message
 DELETE /mailboxes/:mailbox/messages/:uid          # move message to Trash
 PATCH  /mailboxes/:mailbox/messages/:uid          # update flags, e.g. { "seen": true }
 POST   /mailboxes/:mailbox/messages/:uid/reply    # reply to a message
+POST   /mailboxes/:mailbox/messages/:uid/move     # move single message
+POST   /mailboxes/:mailbox/messages/:uid/copy     # copy single message
 ```
+
+#### Pagination
+
+The listing and search endpoints support cursor-based pagination:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `cursor` | — | UID cursor; returns messages with UID < cursor |
+| `limit` | `50` | Page size (max 100) |
+
+Response shape:
+
+```json
+{
+  "messages": [...],
+  "nextCursor": 480,
+  "hasMore": true
+}
+```
+
+#### Search parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `q` | Full-text body search |
+| `from` | Filter by sender |
+| `subject` | Filter by subject |
+| `since` | Messages sent on or after this ISO-8601 date |
+| `before` | Messages sent before this ISO-8601 date |
+| `unseen` | Only unread messages (`true`) |
+
+### Bulk Operations
+
+```
+PATCH /mailboxes/:mailbox/messages                # bulk mark seen/flagged
+POST  /mailboxes/:mailbox/messages/move           # bulk move to another mailbox
+POST  /mailboxes/:mailbox/messages/copy           # bulk copy to another mailbox
+```
+
+Bulk mark body:
+
+```json
+{
+  "uids": [10, 20, 30],
+  "seen": true,
+  "flagged": false
+}
+```
+
+Bulk move/copy body:
+
+```json
+{
+  "uids": [10, 20, 30],
+  "destination": "Archive"
+}
+```
+
+All bulk endpoints cap `uids` at 100 entries per request.
 
 ### Send
 
