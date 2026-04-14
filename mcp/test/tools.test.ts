@@ -239,3 +239,143 @@ describe('send_email', () => {
     expect(result.isError).toBe(true);
   });
 });
+
+describe('get_thread', () => {
+  it('calls GET /mailboxes/:mailbox/thread/:messageId with URL-encoded messageId', async () => {
+    const thread = [
+      { uid: 10, from: 'alice@test.com', subject: 'Hello', date: '2024-06-01T10:00:00Z', seen: true },
+      { uid: 15, from: 'bob@test.com', subject: 'Re: Hello', date: '2024-06-01T11:00:00Z', seen: false },
+    ];
+    mockFetchResponse(200, thread);
+
+    const result = await callTool('get_thread', {
+      mailbox: 'INBOX',
+      messageId: '<abc@example.com>',
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetchSpy.mock.calls[0];
+    expect(url).toBe(
+      'http://localhost:9999/mailboxes/INBOX/thread/%3Cabc%40example.com%3E',
+    );
+    expect(opts.method).toBe('GET');
+    expect(result.isError).toBeFalsy();
+    expect(parseToolText(result)).toEqual({ status: 200, data: thread });
+  });
+
+  it('sets isError when REST returns 4xx', async () => {
+    mockFetchResponse(404, { error: 'Not found' });
+
+    const result = await callTool('get_thread', {
+      mailbox: 'INBOX',
+      messageId: '<missing@example.com>',
+    });
+
+    expect(result.isError).toBe(true);
+  });
+});
+
+describe('download_attachment', () => {
+  it('calls GET /mailboxes/:mailbox/messages/:uid/attachments/:index', async () => {
+    const src = Buffer.from('pdf-content');
+    const ab = new ArrayBuffer(src.length);
+    new Uint8Array(ab).set(src);
+    fetchSpy.mockResolvedValueOnce({
+      status: 200,
+      arrayBuffer: async () => ab,
+    } as unknown as Response);
+
+    const result = await callTool('download_attachment', {
+      mailbox: 'INBOX',
+      uid: 42,
+      index: 0,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetchSpy.mock.calls[0];
+    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages/42/attachments/0');
+    expect(opts.method).toBe('GET');
+    expect(result.isError).toBe(false);
+    // Verify the response is base64-encoded
+    expect(result.content[0].text).toBe(Buffer.from('pdf-content').toString('base64'));
+  });
+
+  it('sets isError when REST returns 4xx', async () => {
+    fetchSpy.mockResolvedValueOnce({
+      status: 404,
+      text: async () => JSON.stringify({ error: 'Not found' }),
+    } as unknown as Response);
+
+    const result = await callTool('download_attachment', {
+      mailbox: 'INBOX',
+      uid: 42,
+      index: 99,
+    });
+
+    expect(result.isError).toBe(true);
+  });
+});
+
+describe('send_email with attachments', () => {
+  it('includes attachments in the request body when provided', async () => {
+    mockFetchResponse(202, { queued: true });
+
+    const attachments = [
+      { filename: 'report.pdf', contentType: 'application/pdf', content: 'JVBERi0xLjQK' },
+    ];
+
+    const result = await callTool('send_email', {
+      to: ['bob@test.com'],
+      subject: 'Report',
+      text: 'See attached.',
+      attachments,
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    expect(body.attachments).toEqual(attachments);
+    expect(result.isError).toBeFalsy();
+  });
+});
+
+describe('reply_to_message with attachments', () => {
+  it('includes attachments in the request body when provided', async () => {
+    mockFetchResponse(202, { queued: true });
+
+    const attachments = [
+      { filename: 'notes.txt', contentType: 'text/plain', content: 'SGVsbG8=' },
+    ];
+
+    const result = await callTool('reply_to_message', {
+      mailbox: 'INBOX',
+      uid: 10,
+      text: 'See attached notes.',
+      attachments,
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+    expect(body.attachments).toEqual(attachments);
+    expect(result.isError).toBeFalsy();
+  });
+});
+
+describe('list_messages with sort', () => {
+  it('forwards sort query parameter when provided', async () => {
+    mockFetchResponse(200, []);
+
+    await callTool('list_messages', { mailbox: 'INBOX', sort: 'asc' });
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(url).toContain('sort=asc');
+  });
+});
+
+describe('search_messages with sort', () => {
+  it('forwards sort query parameter when provided', async () => {
+    mockFetchResponse(200, []);
+
+    await callTool('search_messages', { mailbox: 'INBOX', q: 'hello', sort: 'asc' });
+
+    const [url] = fetchSpy.mock.calls[0];
+    expect(url).toContain('sort=asc');
+  });
+});

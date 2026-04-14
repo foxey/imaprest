@@ -115,6 +115,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       since: z.string().optional().describe('ISO 8601 date — return messages since this date'),
       limit: z.number().int().positive().optional().describe('Maximum number of messages to return'),
       cursor: z.number().int().positive().optional().describe('Pagination cursor — UID to start from (exclusive, returns older messages)'),
+      sort: z.enum(['asc', 'desc']).optional().describe('Sort order: asc (oldest first) or desc (newest first)'),
     },
     async ({
       mailbox,
@@ -123,6 +124,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       since,
       limit,
       cursor,
+      sort,
     }: {
       mailbox: string;
       unseen?: boolean;
@@ -130,6 +132,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       since?: string;
       limit?: number;
       cursor?: number;
+      sort?: 'asc' | 'desc';
     }) => {
       const params = new URLSearchParams();
       if (unseen) params.set('unseen', 'true');
@@ -137,6 +140,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       if (since) params.set('since', since);
       if (limit !== undefined) params.set('limit', String(limit));
       if (cursor !== undefined) params.set('cursor', String(cursor));
+      if (sort) params.set('sort', sort);
       const qs = params.toString();
       const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages${qs ? `?${qs}` : ''}`;
       const { status, data } = await callImaprest(cfg.imaprestUrl, 'GET', path, hdrs.imap);
@@ -165,6 +169,60 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       return {
         content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
         isError: status >= 400,
+      };
+    },
+  );
+
+  // get_thread
+  server.tool(
+    'get_thread',
+    'Retrieve all messages in a conversation thread given a Message-ID.',
+    {
+      mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
+      messageId: z.string().describe('Message-ID header value to find the thread for'),
+    },
+    async ({ mailbox, messageId }: { mailbox: string; messageId: string }) => {
+      const { status, data } = await callImaprest(
+        cfg.imaprestUrl,
+        'GET',
+        `/mailboxes/${encodeURIComponent(mailbox)}/thread/${encodeURIComponent(messageId)}`,
+        hdrs.imap,
+      );
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
+        isError: status >= 400,
+      };
+    },
+  );
+
+  // download_attachment
+  server.tool(
+    'download_attachment',
+    'Download a specific attachment from an email message.',
+    {
+      mailbox: z.string().describe('Mailbox name, e.g. INBOX'),
+      uid: z.number().int().positive().describe('Message UID'),
+      index: z.number().int().min(0).describe('Attachment index (zero-based)'),
+    },
+    async ({ mailbox, uid, index }: { mailbox: string; uid: number; index: number }) => {
+      const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}/attachments/${index}`;
+      const res = await fetch(`${cfg.imaprestUrl}${path}`, {
+        method: 'GET',
+        headers: hdrs.imap,
+      });
+      if (res.status >= 400) {
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ status: res.status, data }) }],
+          isError: true,
+        };
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return {
+        content: [{ type: 'text', text: buffer.toString('base64') }],
+        isError: false,
       };
     },
   );
@@ -251,14 +309,19 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       mailbox: z.string().describe('Mailbox containing the original message'),
       uid: z.number().int().positive().describe('UID of the message to reply to'),
       text: z.string().describe('Plain-text body of the reply'),
+      attachments: z.array(z.object({
+        filename: z.string(),
+        contentType: z.string(),
+        content: z.string().describe('Base64-encoded file content'),
+      })).optional().describe('File attachments'),
     },
-    async ({ mailbox, uid, text }: { mailbox: string; uid: number; text: string }) => {
+    async ({ mailbox, uid, text, attachments }: { mailbox: string; uid: number; text: string; attachments?: { filename: string; contentType: string; content: string }[] }) => {
       const { status, data } = await callImaprest(
         cfg.imaprestUrl,
         'POST',
         `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}/reply`,
         hdrs.imapSmtp,
-        { text },
+        { text, ...(attachments !== undefined ? { attachments } : {}) },
       );
       return {
         content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
@@ -277,6 +340,11 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       text: z.string().optional().describe('Plain-text body'),
       html: z.string().optional().describe('HTML body'),
       cc: z.array(z.string()).optional().describe('CC addresses'),
+      attachments: z.array(z.object({
+        filename: z.string(),
+        contentType: z.string(),
+        content: z.string().describe('Base64-encoded file content'),
+      })).optional().describe('File attachments'),
     },
     async ({
       to,
@@ -284,12 +352,14 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       text,
       html,
       cc,
+      attachments,
     }: {
       to: string[];
       subject: string;
       text?: string;
       html?: string;
       cc?: string[];
+      attachments?: { filename: string; contentType: string; content: string }[];
     }) => {
       const { status, data } = await callImaprest(cfg.imaprestUrl, 'POST', '/send', hdrs.smtp, {
         to,
@@ -297,6 +367,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
         ...(text !== undefined ? { text } : {}),
         ...(html !== undefined ? { html } : {}),
         ...(cc !== undefined ? { cc } : {}),
+        ...(attachments !== undefined ? { attachments } : {}),
       });
       return {
         content: [{ type: 'text', text: JSON.stringify({ status, data }) }],
@@ -415,6 +486,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       unseen: z.boolean().optional().describe('Only return unread messages'),
       limit: z.number().int().positive().optional().describe('Maximum number of results to return'),
       cursor: z.number().int().positive().optional().describe('Pagination cursor — UID to start from (exclusive, returns older messages)'),
+      sort: z.enum(['asc', 'desc']).optional().describe('Sort order: asc (oldest first) or desc (newest first)'),
     },
     async ({
       mailbox,
@@ -426,6 +498,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       unseen,
       limit,
       cursor,
+      sort,
     }: {
       mailbox: string;
       q?: string;
@@ -436,6 +509,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       unseen?: boolean;
       limit?: number;
       cursor?: number;
+      sort?: 'asc' | 'desc';
     }) => {
       const params = new URLSearchParams();
       if (q) params.set('q', q);
@@ -446,6 +520,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
       if (unseen) params.set('unseen', 'true');
       if (limit !== undefined) params.set('limit', String(limit));
       if (cursor !== undefined) params.set('cursor', String(cursor));
+      if (sort) params.set('sort', sort);
       const qs = params.toString();
       const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages/search${qs ? `?${qs}` : ''}`;
       const { status, data } = await callImaprest(cfg.imaprestUrl, 'GET', path, hdrs.imap);

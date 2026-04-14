@@ -11,7 +11,7 @@ import {
   validateSearchParams,
   buildSearchCriteria,
 } from "../lib/search";
-import { validatePaginationParams } from "../lib/validate";
+import { validatePaginationParams, validateSortParam } from "../lib/validate";
 
 interface MessageSummary {
   uid: number;
@@ -22,7 +22,7 @@ interface MessageSummary {
 }
 
 type MailboxParams = { mailbox: string };
-type SearchQuerystring = SearchParams & { cursor?: string };
+type SearchQuerystring = SearchParams & { cursor?: string; sort?: string };
 
 export async function searchRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: MailboxParams; Querystring: SearchQuerystring }>(
@@ -56,6 +56,13 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: (err as Error).message });
       }
 
+      let sortDirection: 'asc' | 'desc';
+      try {
+        sortDirection = validateSortParam(request.query.sort);
+      } catch (err) {
+        return reply.status(400).send({ error: (err as Error).message });
+      }
+
       const criteria = buildSearchCriteria(request.query);
 
       const client = await createImapClient(creds, imap);
@@ -63,12 +70,16 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         await client.mailboxOpen(request.params.mailbox);
 
         // Only apply UID range when a cursor is provided.
-        // For filtered searches, use a simple ceiling (uid < cursor) instead
-        // of the tight window — matching UIDs may be scattered across the
-        // entire mailbox, not clustered near the cursor.
+        // For filtered searches, use a simple ceiling/floor since matching
+        // UIDs may be scattered across the entire mailbox, not clustered
+        // near the cursor.
         let uidRangeCriteria: { uid?: string } = {};
         if (pagination.cursor !== undefined) {
-          uidRangeCriteria = { uid: `1:${pagination.cursor - 1}` };
+          if (sortDirection === 'asc') {
+            uidRangeCriteria = { uid: `${pagination.cursor + 1}:*` };
+          } else {
+            uidRangeCriteria = { uid: `1:${pagination.cursor - 1}` };
+          }
         }
 
         const mergedCriteria = { ...criteria, ...uidRangeCriteria };
@@ -78,7 +89,7 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
           return reply.send({ messages: [], nextCursor: null, hasMore: false });
         }
 
-        const page = paginateUids(uids, pagination.limit);
+        const page = paginateUids(uids, pagination.limit, sortDirection);
 
         const messages: MessageSummary[] = [];
         for await (const msg of client.fetch(

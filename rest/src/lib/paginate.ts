@@ -6,10 +6,17 @@ export interface PaginateResult {
 
 /**
  * Pure pagination over a UID array (already filtered by UID range from IMAP search).
- * Sorts descending (newest first), applies +1 overfetch logic.
+ * Sorts by the given direction (default descending/newest first), applies +1 overfetch logic.
  */
-export function paginateUids(uids: number[], limit: number): PaginateResult {
-  const sorted = [...uids].sort((a, b) => b - a);
+export function paginateUids(
+  uids: number[],
+  limit: number,
+  sort: 'asc' | 'desc' = 'desc',
+): PaginateResult {
+  const sorted =
+    sort === 'asc'
+      ? [...uids].sort((a, b) => a - b)
+      : [...uids].sort((a, b) => b - a);
 
   if (sorted.length > limit) {
     return {
@@ -48,4 +55,18 @@ export function buildUidRangeCriteria(
   const lower = Math.max(1, uidNext - limit - 1);
   const upper = uidNext - 1;
   return { uid: `${lower}:${upper}` };
+}
+
+/**
+ * Builds UID range criteria for ascending pagination.
+ * - With cursor C: { uid: `${C+1}:*` } (UIDs strictly greater than cursor)
+ * - Without cursor: empty object (start from the beginning)
+ */
+export function buildUidRangeCriteriaAsc(
+  cursor: number | undefined,
+): { uid?: string } {
+  if (cursor !== undefined) {
+    return { uid: `${cursor + 1}:*` };
+  }
+  return {};
 }

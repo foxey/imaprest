@@ -6,11 +6,11 @@ import {
   extractSmtpConfig,
 } from "../lib/credentials";
 import { createImapClient, disconnectImapClient } from "../lib/imap";
-import { buildUidRangeCriteria, paginateUids } from "../lib/paginate";
+import { buildUidRangeCriteria, buildUidRangeCriteriaAsc, paginateUids } from "../lib/paginate";
 import { parseRawMessage } from "../lib/parse";
 import { buildSearchCriteria, SearchParams } from "../lib/search";
 import { sendMail } from "../lib/smtp";
-import { validatePaginationParams } from "../lib/validate";
+import { validateAttachments, validatePaginationParams, validateSortParam } from "../lib/validate";
 
 interface MessageSummary {
   uid: number;
@@ -21,7 +21,7 @@ interface MessageSummary {
 }
 
 type MailboxParams = { mailbox: string };
-type ListQuerystring = SearchParams & { cursor?: string };
+type ListQuerystring = SearchParams & { cursor?: string; sort?: string };
 
 export async function messagesRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: MailboxParams; Querystring: ListQuerystring }>(
@@ -56,6 +56,13 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: (err as Error).message });
       }
 
+      let sortDirection: 'asc' | 'desc';
+      try {
+        sortDirection = validateSortParam(request.query.sort);
+      } catch (err) {
+        return reply.status(400).send({ error: (err as Error).message });
+      }
+
       const client = await createImapClient(creds, imap);
       try {
         await client.mailboxOpen(request.params.mailbox);
@@ -65,16 +72,26 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
 
         // UID range strategy:
         // - Unfiltered listing: use tight UID window for IMAP-level efficiency
-        // - Filtered listing: use simple ceiling (uid < cursor) since matching
+        // - Filtered listing: use simple ceiling/floor since matching
         //   UIDs may be scattered across the entire mailbox
         const hasSearchFilters = Object.keys(searchCriteria).length > 0;
         let uidRangeCriteria: { uid?: string } = {};
-        if (hasSearchFilters) {
-          if (pagination.cursor !== undefined) {
-            uidRangeCriteria = { uid: `1:${pagination.cursor - 1}` };
+        if (sortDirection === 'asc') {
+          if (hasSearchFilters) {
+            if (pagination.cursor !== undefined) {
+              uidRangeCriteria = { uid: `${pagination.cursor + 1}:*` };
+            }
+          } else {
+            uidRangeCriteria = buildUidRangeCriteriaAsc(pagination.cursor);
           }
         } else {
-          uidRangeCriteria = buildUidRangeCriteria(pagination.cursor, pagination.limit, uidNext);
+          if (hasSearchFilters) {
+            if (pagination.cursor !== undefined) {
+              uidRangeCriteria = { uid: `1:${pagination.cursor - 1}` };
+            }
+          } else {
+            uidRangeCriteria = buildUidRangeCriteria(pagination.cursor, pagination.limit, uidNext);
+          }
         }
 
         const criteria = { ...searchCriteria, ...uidRangeCriteria };
@@ -84,7 +101,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
           return reply.send({ messages: [], nextCursor: null, hasMore: false });
         }
 
-        const page = paginateUids(uids, pagination.limit);
+        const page = paginateUids(uids, pagination.limit, sortDirection);
 
         const messages: MessageSummary[] = [];
         for await (const msg of client.fetch(
@@ -269,6 +286,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
   interface ReplyBody {
     text?: unknown;
     html?: unknown;
+    attachments?: unknown;
   }
 
   app.post<{ Params: ReplyParams; Body: ReplyBody }>(
@@ -305,6 +323,15 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         return reply
           .status(400)
           .send({ error: "At least one of 'text' or 'html' is required" });
+      }
+
+      let validatedAttachments;
+      if (body.attachments && Array.isArray(body.attachments) && body.attachments.length > 0) {
+        try {
+          validatedAttachments = validateAttachments(body.attachments);
+        } catch (err) {
+          return reply.status(400).send({ error: (err as Error).message });
+        }
       }
 
       const client = await createImapClient(creds, imap);
@@ -346,6 +373,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
             html: typeof body.html === "string" ? body.html : null,
             inReplyTo: original.messageId,
             references,
+            ...(validatedAttachments ? { attachments: validatedAttachments } : {}),
           }
         );
 
