@@ -5,7 +5,7 @@ import {
   extractImapConfig,
 } from "../lib/credentials";
 import { createImapClient, disconnectImapClient } from "../lib/imap";
-import { buildUidRangeCriteria, paginateUids } from "../lib/paginate";
+import { paginateUids } from "../lib/paginate";
 import {
   SearchParams,
   validateSearchParams,
@@ -65,13 +65,14 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
         const mailbox = client.mailbox;
         const uidNext = mailbox ? mailbox.uidNext : 1;
 
-        // Only apply UID range when an explicit cursor is provided.
-        // Without a cursor, the search criteria (date, sender, etc.) may match
-        // UIDs scattered across the entire mailbox — a tight UID window would
-        // miss most of them.
-        const uidRangeCriteria = pagination.cursor !== undefined
-          ? buildUidRangeCriteria(pagination.cursor, pagination.limit, uidNext)
-          : {};
+        // Only apply UID range when a cursor is provided.
+        // For filtered searches, use a simple ceiling (uid < cursor) instead
+        // of the tight window — matching UIDs may be scattered across the
+        // entire mailbox, not clustered near the cursor.
+        let uidRangeCriteria: { uid?: string } = {};
+        if (pagination.cursor !== undefined) {
+          uidRangeCriteria = { uid: `1:${pagination.cursor - 1}` };
+        }
 
         const mergedCriteria = { ...criteria, ...uidRangeCriteria };
 

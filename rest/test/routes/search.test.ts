@@ -161,7 +161,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     await app.close();
   });
 
-  it("applies UID range when cursor is provided with search criteria", async () => {
+  it("applies simple UID ceiling when cursor is provided with search criteria", async () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
@@ -169,7 +169,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
       headers: CRED_HEADERS,
     });
     expect(mockClient.search).toHaveBeenCalledWith(
-      expect.objectContaining({ from: "alice@example.com", uid: expect.any(String) }),
+      { from: "alice@example.com", uid: "1:49" },
       { uid: true }
     );
     await app.close();
