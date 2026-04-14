@@ -6,6 +6,8 @@ A lightweight REST API for IMAP mailboxes and SMTP sending, built with [Fastify]
 
 imaprest lets you interact with email accounts over HTTP. Credentials and server configuration are passed per-request via headers — no server-side configuration needed.
 
+An optional **MCP server** (`imaprest-mcp`) is included, wrapping the REST API as [Model Context Protocol](https://modelcontextprotocol.io) tools for use with LLM agents.
+
 ## Installation
 
 ### Docker (recommended)
@@ -14,7 +16,8 @@ imaprest lets you interact with email accounts over HTTP. Credentials and server
 docker compose up -d
 ```
 
-The API will be available on `http://localhost:3000`.
+The REST API will be available on `http://localhost:3000`.  
+The MCP server will be available on `http://localhost:3001`.
 
 To expose a different port, set the `PORT` environment variable and update the port mapping in `docker-compose.yml`:
 
@@ -222,6 +225,82 @@ Body:
 
 `text` is required; `attachments` is optional.
 
+## MCP Server
+
+`imaprest-mcp` is a [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) MCP server that wraps the REST API and exposes it as MCP tools for LLM agents.
+
+### Running
+
+The MCP server is included in `docker-compose.yml` and starts automatically alongside the REST API:
+
+```bash
+docker compose up -d
+```
+
+It listens on `http://172.17.0.1:3001` by default (bound to the Docker bridge interface; adjust in `docker-compose.yml` if needed).
+
+The MCP endpoint is `POST /mcp`. A health check is available at `GET /health`.
+
+### Configuration
+
+Credentials and server settings are configured once via environment variables — the MCP tools do not require per-request headers:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `IMAPREST_URL` | `http://imaprest:3000` | URL of the REST API |
+| `MAIL_USER` | *(required)* | Email address / IMAP username |
+| `MAIL_PASSWORD` | *(required)* | Password |
+| `MAIL_IMAP_HOST` | *(required)* | IMAP server hostname |
+| `MAIL_IMAP_PORT` | `993` | IMAP port |
+| `MAIL_IMAP_TLS` | `true` | IMAP TLS (`true`/`false`) |
+| `MAIL_SMTP_HOST` | *(required)* | SMTP server hostname |
+| `MAIL_SMTP_PORT` | `465` | SMTP port |
+| `MAIL_SMTP_TLS` | `true` | SMTP TLS (`true`/`false`) |
+| `PORT` | `3001` | Port the MCP server listens on |
+
+Set these in a `.env` file at the project root:
+
+```dotenv
+MAIL_USER=you@example.com
+MAIL_PASSWORD=secret
+MAIL_IMAP_HOST=imap.example.com
+MAIL_SMTP_HOST=smtp.example.com
+```
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_mailboxes` | List all IMAP folders |
+| `list_messages` | List messages with optional filters (`unseen`, `from`, `since`, `sort`, `cursor`, `limit`) |
+| `search_messages` | Full-text search (`q`, `from`, `subject`, `since`, `before`, `unseen`, `sort`) |
+| `get_message` | Fetch a single message by UID |
+| `get_thread` | Fetch all messages in a thread by `Message-ID` |
+| `download_attachment` | Download an attachment by index (returns base64) |
+| `send_email` | Compose and send a new email (supports attachments) |
+| `reply_to_message` | Reply to a message by UID (supports attachments) |
+| `mark_message` | Mark a single message as `seen`/`unseen` |
+| `bulk_mark_messages` | Mark multiple messages as `seen`/`unseen` and/or `flagged` (max 100 UIDs) |
+| `delete_message` | Move a message to Trash |
+| `move_message` | Move a single message to another mailbox |
+| `copy_message` | Copy a single message to another mailbox |
+| `bulk_move_messages` | Move multiple messages at once (max 100 UIDs) |
+| `bulk_copy_messages` | Copy multiple messages at once (max 100 UIDs) |
+
+### Connecting an agent
+
+Point your MCP client at `http://<host>:3001/mcp`. Example NanoClaw config:
+
+```json
+{
+  "mcpServers": {
+    "imaprest": {
+      "url": "http://172.17.0.1:3001/mcp"
+    }
+  }
+}
+```
+
 ## Development
 
 ```bash
@@ -229,6 +308,15 @@ cd rest
 npm run typecheck   # TypeScript type checking
 npm run lint        # ESLint
 npm test            # Jest tests
+```
+
+For the MCP server:
+
+```bash
+cd mcp
+npm run typecheck
+npm run lint
+npm test
 ```
 
 ## License
