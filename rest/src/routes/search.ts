@@ -62,9 +62,6 @@ export async function searchRoutes(app: FastifyInstance): Promise<void> {
       try {
         await client.mailboxOpen(request.params.mailbox);
 
-        const mailbox = client.mailbox;
-        const uidNext = mailbox ? mailbox.uidNext : 1;
-
         // Only apply UID range when a cursor is provided.
         // For filtered searches, use a simple ceiling (uid < cursor) instead
         // of the tight window — matching UIDs may be scattered across the
