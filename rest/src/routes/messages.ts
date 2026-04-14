@@ -63,11 +63,14 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         const mailbox = client.mailbox;
         const uidNext = mailbox ? mailbox.uidNext : 1;
 
-        const uidRangeCriteria = buildUidRangeCriteria(
-          pagination.cursor,
-          pagination.limit,
-          uidNext,
-        );
+        // Only apply the tight UID range optimization when no search filters
+        // are active, or when an explicit cursor is provided for pagination.
+        // With filters (unseen, from, since, etc.), matching UIDs may be
+        // scattered across the entire mailbox.
+        const hasSearchFilters = Object.keys(searchCriteria).length > 0;
+        const uidRangeCriteria = (!hasSearchFilters || pagination.cursor !== undefined)
+          ? buildUidRangeCriteria(pagination.cursor, pagination.limit, uidNext)
+          : {};
 
         const criteria = { ...searchCriteria, ...uidRangeCriteria };
 

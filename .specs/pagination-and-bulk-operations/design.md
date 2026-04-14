@@ -6,9 +6,11 @@ This design adds cursor-based pagination to the message listing and search endpo
 
 Cursor-based pagination uses IMAP UIDs as cursors. UIDs are monotonically increasing within a mailbox (highest UID = most recent message), so the first page returns the newest messages and subsequent pages walk backward through older ones. The cursor is a UID boundary — the next page fetches UIDs strictly less than the cursor. Crucially, the UID range filtering is pushed down to the IMAP server via ImapFlow's `{ uid: '1:{cursor-1}' }` search criteria, avoiding fetching all UIDs client-side. The bulk endpoints leverage ImapFlow's native array-of-UIDs support for `messageFlagsAdd`, `messageFlagsRemove`, `messageMove`, and `messageCopy`, keeping the implementation thin.
 
+Date-based search filtering uses IMAP's `SENTSINCE` and `SENTBEFORE` commands (mapped to ImapFlow's `sentSince`/`sentBefore` criteria), which filter by the RFC-2822 `Date:` header rather than the IMAP internal/arrival date. This ensures correct results for imported or re-indexed mail where the arrival date may differ from the original send date.
+
 ### Key Design Decisions
 
-1. **UID-as-cursor with tight IMAP-level range filtering** — UIDs are stable, server-assigned, and monotonically increasing per mailbox (highest = newest). The cursor is the lowest UID on the current page; the next page asks the IMAP server for UIDs in a tight window via `search({ uid: '{cursor-limit-1}:{cursor-1}' })`. This avoids fetching all UIDs — only the narrow range around the page boundary is queried. For the first page (no cursor), we use `client.mailbox.uidNext` (available after `mailboxOpen`) as the upper bound, searching `{ uid: '{uidNext-limit-1}:{uidNext-1}' }` — so even the first page avoids scanning the entire mailbox. Since UIDs can have gaps (deleted messages), the range may return fewer than `limit` results; this is fine — the client gets a shorter page and pages again.
+1. **UID-as-cursor with tight IMAP-level range filtering** — UIDs are stable, server-assigned, and monotonically increasing per mailbox (highest = newest). The cursor is the lowest UID on the current page; the next page asks the IMAP server for UIDs in a tight window via `search({ uid: '{cursor-limit-1}:{cursor-1}' })`. This avoids fetching all UIDs — only the narrow range around the page boundary is queried. For the first page of an **unfiltered** listing (no cursor, no search criteria), we use `client.mailbox.uidNext` (available after `mailboxOpen`) as the upper bound, searching `{ uid: '{uidNext-limit-1}:{uidNext-1}' }` — so even the first page avoids scanning the entire mailbox. **Important:** the UID range optimization is only applied when no search filters are active (plain mailbox listing) or when an explicit cursor is provided. For filtered searches (date, sender, keyword, etc.), matching UIDs may be scattered across the entire UID space, so the first page lets IMAP return all matching UIDs and paginates client-side via `paginateUids`. Since UIDs can have gaps (deleted messages), the range may return fewer than `limit` results; this is fine — the client gets a shorter page and pages again.
 
 2. **Response shape change** — The listing and search endpoints currently return a bare JSON array. They will return `{ messages, nextCursor, hasMore }` instead. This is a breaking change for existing consumers but is required by the requirements.
 
@@ -66,16 +68,17 @@ sequenceDiagram
 
 1. Client sends `GET /mailboxes/:mailbox/messages?cursor=C&limit=L`
 2. Route handler extracts credentials, opens mailbox
-3. Build search criteria:
-   - **No cursor (first page):** use `client.mailbox.uidNext` (available after `mailboxOpen`) as the upper bound. Search with `{ uid: '{max(1, uidNext-L-1)}:{uidNext-1}' }` merged with any base criteria. This fetches only the newest UIDs without scanning the entire mailbox.
-   - **With cursor:** merge `{ uid: '{max(1, C-L-1)}:{C-1}' }` into the search criteria. This asks the IMAP server for only the tight window of UIDs just below the cursor.
-4. Run `client.search(criteria, { uid: true })` — returns matching UIDs within the requested range
+3. Build search criteria and determine UID range strategy:
+   - **No cursor, no search filters (first page of unfiltered listing):** use `client.mailbox.uidNext` as the upper bound. Search with `{ uid: '{max(1, uidNext-L-1)}:{uidNext-1}' }`. This fetches only the newest UIDs without scanning the entire mailbox.
+   - **No cursor, with search filters (first page of filtered search):** do NOT apply UID range. Let IMAP return all matching UIDs across the entire mailbox, then paginate client-side via `paginateUids`. This is necessary because matching UIDs may be scattered across the full UID space.
+   - **With cursor (any subsequent page):** merge `{ uid: '{max(1, C-L-1)}:{C-1}' }` into the search criteria. This asks the IMAP server for only the tight window of UIDs just below the cursor.
+4. Run `client.search(criteria, { uid: true })` — returns matching UIDs
 5. Sort returned UIDs descending (newest first), slice to `L + 1` entries
 6. If `L + 1` entries exist → `hasMore = true`, `nextCursor = UIDs[L-1]` (the L-th item), return first L messages
 7. Otherwise → `hasMore = false`, `nextCursor = null`, return all messages
 8. Fetch envelopes/flags only for the page-sized UID slice via `client.fetch()`
 
-The tight UID range keeps the IMAP search efficient — instead of scanning all UIDs in the mailbox, only the narrow window around the page boundary is queried. The "+1 overfetch" is on the UID list only; the expensive `fetch()` call runs for the actual page size.
+The tight UID range keeps the IMAP search efficient for unfiltered listings — instead of scanning all UIDs in the mailbox, only the narrow window around the page boundary is queried. For filtered searches, the first page trades this optimization for correctness, since date/sender/keyword matches can span the entire mailbox. The "+1 overfetch" is on the UID list only; the expensive `fetch()` call runs for the actual page size.
 
 **Note on UID gaps:** Because deleted messages leave gaps in the UID sequence, a tight range may occasionally return fewer than `limit` messages. This is acceptable — the client receives a shorter page and can page again. No data is lost or skipped.
 
@@ -342,7 +345,7 @@ Property-based tests use [fast-check](https://github.com/dubzzz/fast-check) to v
 
 The pagination logic should be extracted into a pure function (`paginateUids`) in `rest/src/lib/paginate.ts` so it can be tested directly without HTTP overhead. This function takes a UID array (as returned by IMAP search — already filtered by UID range when a cursor was provided), an optional cursor for validation, and a limit. It sorts descending (newest first), applies the +1 overfetch logic, and returns `{ uids: number[], nextCursor: number | null, hasMore: boolean }`.
 
-A companion helper `buildUidRangeCriteria(cursor: number | undefined, limit: number, uidNext: number)` computes the tight UID range. When cursor is provided, it returns `{ uid: '{max(1, cursor-limit-1)}:{cursor-1}' }`. When no cursor is provided (first page), it uses uidNext as the upper bound: `{ uid: '{max(1, uidNext-limit-1)}:{uidNext-1}' }`. Both cases keep the IMAP search scoped to a narrow window.
+A companion helper `buildUidRangeCriteria(cursor: number | undefined, limit: number, uidNext: number)` computes the tight UID range. When cursor is provided, it returns `{ uid: '{max(1, cursor-limit-1)}:{cursor-1}' }`. When no cursor is provided (first page), it uses uidNext as the upper bound: `{ uid: '{max(1, uidNext-limit-1)}:{uidNext-1}' }`. Both cases keep the IMAP search scoped to a narrow window. **Note:** the UID range is only applied for unfiltered listings or when an explicit cursor is provided — filtered searches on the first page skip the UID range to avoid missing results scattered across the mailbox.
 
 The UID array validation should be extracted into `rest/src/lib/validate.ts` as a pure function so it can be property-tested directly.
 
