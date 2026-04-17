@@ -13,7 +13,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? "info",
-      redact: ["req.headers['x-mail-password']"],
+      redact: ["req.headers['x-mail-password']", "req.headers['authorization']"],
     },
   });
 
