@@ -9,8 +9,8 @@ import { z } from 'zod';
 
 export interface McpAppConfig {
   imaprestUrl: string;
-  mailUser: string;
-  mailPassword: string;
+  mailUser?: string;      // optional: not needed when HTTP_PROXY/HTTPS_PROXY is set
+  mailPassword?: string;  // optional: not needed when HTTP_PROXY/HTTPS_PROXY is set
   imapHost: string;
   imapPort: string;
   imapTls: string;
@@ -24,10 +24,13 @@ export interface McpAppConfig {
 // ---------------------------------------------------------------------------
 
 function buildHeaders(cfg: McpAppConfig) {
+  const credentialHeaders: Record<string, string> = {};
+  if (cfg.mailUser) credentialHeaders['X-Mail-User'] = cfg.mailUser;
+  if (cfg.mailPassword) credentialHeaders['X-Mail-Password'] = cfg.mailPassword;
+
   const base: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-Mail-User': cfg.mailUser,
-    'X-Mail-Password': cfg.mailPassword,
+    ...credentialHeaders,
   };
 
   const imap: Record<string, string> = {
