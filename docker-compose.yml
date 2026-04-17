@@ -14,8 +14,11 @@ services:
     environment:
       PORT: "3001"
       IMAPREST_URL: "http://imaprest:3000"
-      MAIL_USER: "${MAIL_USER}"
-      MAIL_PASSWORD: "${MAIL_PASSWORD}"
+      HTTPS_PROXY: "${HTTPS_PROXY:-}"
+      HTTP_PROXY: "${HTTP_PROXY:-}"
+      NO_PROXY: "imaprest"
+      MAIL_USER: "${MAIL_USER:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
       MAIL_IMAP_HOST: "${MAIL_IMAP_HOST}"
       MAIL_IMAP_PORT: "${MAIL_IMAP_PORT:-993}"
       MAIL_IMAP_TLS: "${MAIL_IMAP_TLS:-true}"
