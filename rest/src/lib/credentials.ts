@@ -31,6 +31,25 @@ function getHeader(headers: Headers, name: string): string | undefined {
 }
 
 export function extractCredentials(headers: Headers): BaseCredentials {
+  const auth = getHeader(headers, "authorization");
+  if (auth) {
+    const match = /^Basic\s+([A-Za-z0-9+/=]+)$/i.exec(auth);
+    if (!match) {
+      throw new CredentialError("Invalid Authorization header: expected Basic scheme");
+    }
+    const decoded = Buffer.from(match[1], "base64").toString("utf8");
+    const colonIdx = decoded.indexOf(":");
+    if (colonIdx === -1) {
+      throw new CredentialError("Invalid Authorization header: missing colon separator");
+    }
+    const user = decoded.slice(0, colonIdx);
+    const password = decoded.slice(colonIdx + 1);
+    if (!user || !password) {
+      throw new CredentialError("Invalid Authorization header: user and password are required");
+    }
+    return { user, password };
+  }
+
   const user = getHeader(headers, "x-mail-user");
   const password = getHeader(headers, "x-mail-password");
 
