@@ -9,8 +9,8 @@ import { z } from 'zod';
 
 export interface McpAppConfig {
   imaprestUrl: string;
-  mailUser?: string;      // optional: not needed when HTTP_PROXY/HTTPS_PROXY is set
-  mailPassword?: string;  // optional: not needed when HTTP_PROXY/HTTPS_PROXY is set
+  mailUser?: string;      // env fallback when no Authorization header in request
+  mailPassword?: string;  // env fallback when no Authorization header in request
   imapHost: string;
   imapPort: string;
   imapTls: string;
@@ -23,10 +23,15 @@ export interface McpAppConfig {
 // Credential headers
 // ---------------------------------------------------------------------------
 
-function buildHeaders(cfg: McpAppConfig) {
+function buildHeaders(cfg: McpAppConfig, requestAuth?: string) {
   const credentialHeaders: Record<string, string> = {};
-  if (cfg.mailUser) credentialHeaders['X-Mail-User'] = cfg.mailUser;
-  if (cfg.mailPassword) credentialHeaders['X-Mail-Password'] = cfg.mailPassword;
+  if (requestAuth) {
+    // Forward Authorization header injected by OneCLI (or provided directly)
+    credentialHeaders['Authorization'] = requestAuth;
+  } else if (cfg.mailUser) {
+    credentialHeaders['X-Mail-User'] = cfg.mailUser;
+    if (cfg.mailPassword) credentialHeaders['X-Mail-Password'] = cfg.mailPassword;
+  }
 
   const base: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -87,8 +92,8 @@ export async function callImaprest(
 // MCP server factory
 // ---------------------------------------------------------------------------
 
-export function buildMcpServer(cfg: McpAppConfig): McpServer {
-  const hdrs = buildHeaders(cfg);
+export function buildMcpServer(cfg: McpAppConfig, requestAuth?: string): McpServer {
+  const hdrs = buildHeaders(cfg, requestAuth);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const server = new McpServer({ name: 'imaprest', version: '0.1.0' }) as any;
@@ -565,8 +570,9 @@ async function handleMcpRequest(
     return;
   }
 
+  const requestAuth = req.headers['authorization'] as string | undefined;
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  const mcpServer = buildMcpServer(cfg);
+  const mcpServer = buildMcpServer(cfg, requestAuth);
   await mcpServer.connect(transport);
   await transport.handleRequest(req, res, parsedBody);
   res.on('close', () => {
