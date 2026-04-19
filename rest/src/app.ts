@@ -3,6 +3,7 @@ import { healthRoutes } from "./routes/health";
 import { mailboxRoutes } from "./routes/mailboxes";
 import { messagesRoutes } from "./routes/messages";
 import { moveCopyRoutes } from "./routes/move-copy";
+import { openapiRoutes } from "./routes/openapi";
 import { searchRoutes } from "./routes/search";
 import { sendRoutes } from "./routes/send";
 import { bulkRoutes } from "./routes/bulk";
@@ -11,12 +12,9 @@ import { attachmentRoutes } from "./routes/attachments";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: {
-      level: process.env.LOG_LEVEL ?? "info",
-      redact: ["req.headers['x-mail-password']"],
-    },
+    logger: { level: process.env.LOG_LEVEL ?? "info", redact: ["req.headers['x-mail-password']"] },
   });
-
+  await app.register(openapiRoutes);
   await app.register(healthRoutes);
   await app.register(mailboxRoutes);
   await app.register(searchRoutes);
@@ -26,6 +24,5 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(bulkRoutes);
   await app.register(threadRoutes);
   await app.register(attachmentRoutes);
-
   return app;
 }
