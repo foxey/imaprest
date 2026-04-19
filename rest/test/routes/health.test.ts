@@ -6,7 +6,7 @@ describe("GET /health", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/health",
+      url: "/imaprest/health",
     });
 
     expect(response.statusCode).toBe(200);
@@ -15,3 +15,4 @@ describe("GET /health", () => {
     await app.close();
   });
 });
+
