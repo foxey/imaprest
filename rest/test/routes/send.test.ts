@@ -25,7 +25,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       payload: VALID_BODY,
     });
     expect(response.statusCode).toBe(401);
@@ -36,7 +36,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: {
         "x-mail-user": "user@example.com",
         "x-mail-password": "secret",
@@ -51,7 +51,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: {
         "x-mail-user": "user@example.com",
         "x-mail-password": "secret",
@@ -67,7 +67,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: { subject: "Hello", text: "Hi" },
     });
@@ -79,7 +79,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: { to: [], subject: "Hello", text: "Hi" },
     });
@@ -91,7 +91,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: { to: ["alice@example.com"], text: "Hi" },
     });
@@ -103,7 +103,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: { to: ["alice@example.com"], subject: "Hello" },
     });
@@ -115,7 +115,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: VALID_BODY,
     });
@@ -128,7 +128,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         to: ["alice@example.com"],
@@ -157,7 +157,7 @@ describe("POST /send", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: { to: ["alice@example.com"], subject: "Hi", html: "<p>hi</p>" },
     });
@@ -165,3 +165,4 @@ describe("POST /send", () => {
     await app.close();
   });
 });
+
