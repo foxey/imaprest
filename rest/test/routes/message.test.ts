@@ -52,7 +52,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/42",
+      url: "/imaprest/mailboxes/INBOX/messages/42",
     });
     expect(response.statusCode).toBe(401);
     await app.close();
@@ -62,7 +62,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/notanumber",
+      url: "/imaprest/mailboxes/INBOX/messages/notanumber",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -73,7 +73,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/0",
+      url: "/imaprest/mailboxes/INBOX/messages/0",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -84,7 +84,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/42",
+      url: "/imaprest/mailboxes/INBOX/messages/42",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -118,7 +118,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/99",
+      url: "/imaprest/mailboxes/INBOX/messages/99",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(404);
@@ -134,7 +134,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/42",
+      url: "/imaprest/mailboxes/INBOX/messages/42",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(404);
@@ -148,7 +148,7 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     try {
       await app.inject({
         method: "GET",
-        url: "/mailboxes/INBOX/messages/42",
+        url: "/imaprest/mailboxes/INBOX/messages/42",
         headers: CRED_HEADERS,
       });
     } catch {
@@ -158,3 +158,4 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     await app.close();
   });
 });
+
