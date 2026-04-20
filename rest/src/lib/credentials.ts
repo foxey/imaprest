@@ -75,29 +75,29 @@ export function extractCredentials(headers: Headers): BaseCredentials {
 export function extractImapConfig(headers: Headers): ImapConfig {
   if (isAuthorizationMode(headers)) {
     // Authorization header mode: IMAP config must come from env vars
-    const host = process.env.IMAP_HOST;
+    const host = process.env.MAIL_IMAP_HOST;
     if (!host) {
       throw new CredentialError(
-        "IMAP_HOST env var is required when using the Authorization header"
+        "MAIL_IMAP_HOST env var is required when using the Authorization header"
       );
     }
-    const portStr = process.env.IMAP_PORT ?? "993";
-    const tlsStr = process.env.IMAP_TLS ?? "true";
+    const portStr = process.env.MAIL_IMAP_PORT ?? "993";
+    const tlsStr = process.env.MAIL_IMAP_TLS ?? "true";
     const port = parseInt(portStr, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
-      throw new CredentialError("IMAP_PORT env var must be a valid port number (1-65535)");
+      throw new CredentialError("MAIL_IMAP_PORT env var must be a valid port number (1-65535)");
     }
     return { host, port, tls: tlsStr.toLowerCase() !== "false" };
   }
 
   // X-Mail-User mode: X-IMAP-Host required (env var fallback allowed)
-  const host = getHeader(headers, "x-imap-host") ?? process.env.IMAP_HOST;
+  const host = getHeader(headers, "x-imap-host") ?? process.env.MAIL_IMAP_HOST;
   if (!host) {
-    throw new CredentialError("Missing required header: X-IMAP-Host (or set IMAP_HOST env var)");
+    throw new CredentialError("Missing required header: X-IMAP-Host (or set MAIL_IMAP_HOST env var)");
   }
 
-  const portStr = getHeader(headers, "x-imap-port") ?? process.env.IMAP_PORT ?? "993";
-  const tlsStr = getHeader(headers, "x-imap-tls") ?? process.env.IMAP_TLS ?? "true";
+  const portStr = getHeader(headers, "x-imap-port") ?? process.env.MAIL_IMAP_PORT ?? "993";
+  const tlsStr = getHeader(headers, "x-imap-tls") ?? process.env.MAIL_IMAP_TLS ?? "true";
   const port = parseInt(portStr, 10);
 
   if (isNaN(port) || port < 1 || port > 65535) {
@@ -110,29 +110,29 @@ export function extractImapConfig(headers: Headers): ImapConfig {
 export function extractSmtpConfig(headers: Headers): SmtpConfig {
   if (isAuthorizationMode(headers)) {
     // Authorization header mode: SMTP config must come from env vars
-    const host = process.env.SMTP_HOST;
+    const host = process.env.MAIL_SMTP_HOST;
     if (!host) {
       throw new CredentialError(
-        "SMTP_HOST env var is required when using the Authorization header"
+        "MAIL_SMTP_HOST env var is required when using the Authorization header"
       );
     }
-    const portStr = process.env.SMTP_PORT ?? "587";
-    const tlsStr = process.env.SMTP_TLS ?? "true";
+    const portStr = process.env.MAIL_SMTP_PORT ?? "587";
+    const tlsStr = process.env.MAIL_SMTP_TLS ?? "true";
     const port = parseInt(portStr, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
-      throw new CredentialError("SMTP_PORT env var must be a valid port number (1-65535)");
+      throw new CredentialError("MAIL_SMTP_PORT env var must be a valid port number (1-65535)");
     }
     return { host, port, tls: tlsStr.toLowerCase() === "true" };
   }
 
   // X-Mail-User mode: X-SMTP-Host required (env var fallback allowed)
-  const host = getHeader(headers, "x-smtp-host") ?? process.env.SMTP_HOST;
+  const host = getHeader(headers, "x-smtp-host") ?? process.env.MAIL_SMTP_HOST;
   if (!host) {
-    throw new CredentialError("Missing required header: X-SMTP-Host (or set SMTP_HOST env var)");
+    throw new CredentialError("Missing required header: X-SMTP-Host (or set MAIL_SMTP_HOST env var)");
   }
 
-  const portStr = getHeader(headers, "x-smtp-port") ?? process.env.SMTP_PORT ?? "587";
-  const tlsStr = getHeader(headers, "x-smtp-tls") ?? process.env.SMTP_TLS ?? "true";
+  const portStr = getHeader(headers, "x-smtp-port") ?? process.env.MAIL_SMTP_PORT ?? "587";
+  const tlsStr = getHeader(headers, "x-smtp-tls") ?? process.env.MAIL_SMTP_TLS ?? "true";
   const port = parseInt(portStr, 10);
 
   if (isNaN(port) || port < 1 || port > 65535) {
