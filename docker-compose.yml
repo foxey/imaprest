@@ -1,5 +1,6 @@
 services:
   imaprest:
+    container_name: imaprest
     build: ./rest
     ports:
       - "3000:3000"
@@ -14,6 +15,7 @@ services:
     restart: unless-stopped
 
   imaprest-mcp:
+    container_name: imaprest-mcp
     build: ./mcp
     ports:
       - "172.17.0.1:3001:3001"
