@@ -25,7 +25,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         ...VALID_BODY,
@@ -47,7 +47,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         ...VALID_BODY,
@@ -62,7 +62,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         ...VALID_BODY,
@@ -77,7 +77,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         ...VALID_BODY,
@@ -92,7 +92,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         ...VALID_BODY,
@@ -113,7 +113,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: VALID_BODY,
     });
@@ -126,7 +126,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: { ...VALID_BODY, attachments: [] },
     });
@@ -139,7 +139,7 @@ describe("POST /send — attachments", () => {
     const app = await buildApp();
     await app.inject({
       method: "POST",
-      url: "/send",
+      url: "/imaprest/send",
       headers: CRED_HEADERS,
       payload: {
         ...VALID_BODY,
