@@ -58,7 +58,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       payload: { text: "My reply" },
     });
     expect(response.statusCode).toBe(401);
@@ -69,7 +69,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: {
         "x-mail-user": "user@example.com",
         "x-mail-password": "secret",
@@ -85,7 +85,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/notanumber/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/notanumber/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
@@ -97,7 +97,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {},
     });
@@ -112,7 +112,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/99/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/99/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
@@ -124,7 +124,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
@@ -137,7 +137,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
@@ -164,7 +164,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
@@ -186,7 +186,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
