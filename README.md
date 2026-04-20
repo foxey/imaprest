@@ -46,16 +46,20 @@ cd rest
 npm run dev
 ```
 
-## Authentication Headers
+## Authentication
 
-Every request must include:
+imaprest supports two authentication modes:
+
+### Mode 1: Per-request headers
+
+Pass credentials and server config with every request:
 
 | Header | Description |
 |--------|-------------|
 | `X-Mail-User` | Email address / IMAP username |
 | `X-Mail-Password` | Password |
 
-### IMAP configuration (mailbox & message routes)
+**IMAP configuration**
 
 | Header | Default | Description |
 |--------|---------|-------------|
@@ -63,13 +67,30 @@ Every request must include:
 | `X-IMAP-Port` | `993` | IMAP port |
 | `X-IMAP-TLS` | `true` | Use TLS (`true`/`false`) |
 
-### SMTP configuration (send & reply routes)
+**SMTP configuration**
 
 | Header | Default | Description |
 |--------|---------|-------------|
 | `X-SMTP-Host` | *(required)* | SMTP server hostname |
 | `X-SMTP-Port` | `465` | SMTP port |
 | `X-SMTP-TLS` | `true` | Use TLS (`true`/`false`) |
+
+For any header, the corresponding env var is used as a fallback if the header is omitted.
+
+### Mode 2: HTTP Basic auth + server env vars
+
+Pass credentials via a standard `Authorization: Basic` header. IMAP/SMTP server config is not accepted in headers — it must be set server-side via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAIL_IMAP_HOST` | *(required)* | IMAP server hostname |
+| `MAIL_IMAP_PORT` | `993` | IMAP port |
+| `MAIL_IMAP_TLS` | `true` | IMAP TLS (`true`/`false`) |
+| `MAIL_SMTP_HOST` | *(required)* | SMTP server hostname |
+| `MAIL_SMTP_PORT` | `587` | SMTP port |
+| `MAIL_SMTP_TLS` | `true` | SMTP TLS (`true`/`false`) |
+
+This mode is useful when deploying imaprest as a dedicated single-account server (e.g. behind a proxy) and you don't want clients to be able to specify arbitrary mail servers.
 
 ## Endpoints
 
