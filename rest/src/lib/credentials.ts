@@ -42,6 +42,15 @@ function parseBasicAuth(authHeader: string): { user: string; password: string } 
   }
 }
 
+/**
+ * Returns true when the request uses HTTP Basic auth (Authorization header)
+ * rather than X-Mail-User / X-Mail-Password headers.
+ * In this mode IMAP/SMTP connection config must come from server env vars.
+ */
+function isAuthorizationMode(headers: Headers): boolean {
+  return !!getHeader(headers, "authorization") && !getHeader(headers, "x-mail-user");
+}
+
 export function extractCredentials(headers: Headers): BaseCredentials {
   const user = getHeader(headers, "x-mail-user");
   const password = getHeader(headers, "x-mail-password");
@@ -64,14 +73,31 @@ export function extractCredentials(headers: Headers): BaseCredentials {
 }
 
 export function extractImapConfig(headers: Headers): ImapConfig {
-  const host = getHeader(headers, "x-imap-host");
-
-  if (!host) {
-    throw new CredentialError("Missing required header: X-IMAP-Host");
+  if (isAuthorizationMode(headers)) {
+    // Authorization header mode: IMAP config must come from env vars
+    const host = process.env.IMAP_HOST;
+    if (!host) {
+      throw new CredentialError(
+        "IMAP_HOST env var is required when using the Authorization header"
+      );
+    }
+    const portStr = process.env.IMAP_PORT ?? "993";
+    const tlsStr = process.env.IMAP_TLS ?? "true";
+    const port = parseInt(portStr, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      throw new CredentialError("IMAP_PORT env var must be a valid port number (1-65535)");
+    }
+    return { host, port, tls: tlsStr.toLowerCase() !== "false" };
   }
 
-  const portStr = getHeader(headers, "x-imap-port") ?? "993";
-  const tlsStr = getHeader(headers, "x-imap-tls") ?? "true";
+  // X-Mail-User mode: X-IMAP-Host required (env var fallback allowed)
+  const host = getHeader(headers, "x-imap-host") ?? process.env.IMAP_HOST;
+  if (!host) {
+    throw new CredentialError("Missing required header: X-IMAP-Host (or set IMAP_HOST env var)");
+  }
+
+  const portStr = getHeader(headers, "x-imap-port") ?? process.env.IMAP_PORT ?? "993";
+  const tlsStr = getHeader(headers, "x-imap-tls") ?? process.env.IMAP_TLS ?? "true";
   const port = parseInt(portStr, 10);
 
   if (isNaN(port) || port < 1 || port > 65535) {
@@ -82,14 +108,31 @@ export function extractImapConfig(headers: Headers): ImapConfig {
 }
 
 export function extractSmtpConfig(headers: Headers): SmtpConfig {
-  const host = getHeader(headers, "x-smtp-host");
-
-  if (!host) {
-    throw new CredentialError("Missing required header: X-SMTP-Host");
+  if (isAuthorizationMode(headers)) {
+    // Authorization header mode: SMTP config must come from env vars
+    const host = process.env.SMTP_HOST;
+    if (!host) {
+      throw new CredentialError(
+        "SMTP_HOST env var is required when using the Authorization header"
+      );
+    }
+    const portStr = process.env.SMTP_PORT ?? "587";
+    const tlsStr = process.env.SMTP_TLS ?? "true";
+    const port = parseInt(portStr, 10);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      throw new CredentialError("SMTP_PORT env var must be a valid port number (1-65535)");
+    }
+    return { host, port, tls: tlsStr.toLowerCase() === "true" };
   }
 
-  const portStr = getHeader(headers, "x-smtp-port") ?? "587";
-  const tlsStr = getHeader(headers, "x-smtp-tls") ?? "false";
+  // X-Mail-User mode: X-SMTP-Host required (env var fallback allowed)
+  const host = getHeader(headers, "x-smtp-host") ?? process.env.SMTP_HOST;
+  if (!host) {
+    throw new CredentialError("Missing required header: X-SMTP-Host (or set SMTP_HOST env var)");
+  }
+
+  const portStr = getHeader(headers, "x-smtp-port") ?? process.env.SMTP_PORT ?? "587";
+  const tlsStr = getHeader(headers, "x-smtp-tls") ?? process.env.SMTP_TLS ?? "true";
   const port = parseInt(portStr, 10);
 
   if (isNaN(port) || port < 1 || port > 65535) {

@@ -19,20 +19,20 @@ const imapHeaders = [
   {
     name: "X-IMAP-Host",
     in: "header" as const,
-    required: true,
-    description: "IMAP server hostname",
+    description:
+      "IMAP server hostname. Used only with X-Mail-User/Password auth; ignored when using Authorization header (falls back to IMAP_HOST env var).",
     schema: { type: "string" },
   },
   {
     name: "X-IMAP-Port",
     in: "header" as const,
-    description: "IMAP port (default: 993)",
+    description: "IMAP port. Used only with X-Mail-User/Password auth (default: 993, or IMAP_PORT env var).",
     schema: { type: "integer", default: 993 },
   },
   {
     name: "X-IMAP-TLS",
     in: "header" as const,
-    description: "Use TLS for IMAP (default: true)",
+    description: "Use TLS for IMAP. Used only with X-Mail-User/Password auth (default: true, or IMAP_TLS env var).",
     schema: { type: "string", enum: ["true", "false"], default: "true" },
   },
 ];
@@ -41,21 +41,21 @@ const smtpHeaders = [
   {
     name: "X-SMTP-Host",
     in: "header" as const,
-    required: true,
-    description: "SMTP server hostname",
+    description:
+      "SMTP server hostname. Used only with X-Mail-User/Password auth; ignored when using Authorization header (falls back to SMTP_HOST env var).",
     schema: { type: "string" },
   },
   {
     name: "X-SMTP-Port",
     in: "header" as const,
-    description: "SMTP port (default: 587)",
+    description: "SMTP port. Used only with X-Mail-User/Password auth (default: 587, or SMTP_PORT env var).",
     schema: { type: "integer", default: 587 },
   },
   {
     name: "X-SMTP-TLS",
     in: "header" as const,
-    description: "Use implicit TLS for SMTP (default: false, meaning STARTTLS on port 587)",
-    schema: { type: "string", enum: ["true", "false"], default: "false" },
+    description: "Use implicit TLS for SMTP. Used only with X-Mail-User/Password auth (default: true, or SMTP_TLS env var).",
+    schema: { type: "string", enum: ["true", "false"], default: "true" },
   },
 ];
 
@@ -175,7 +175,14 @@ const spec = {
     title: "imaprest",
     version: "1.0.0",
     description:
-      "REST API for IMAP/SMTP mail access. Authenticate with `Authorization: Basic base64(user:password)` or `X-Mail-User` + `X-Mail-Password` headers.",
+      "REST API for IMAP/SMTP mail access.\n\n" +
+      "**Two authentication modes:**\n\n" +
+      "1. **Authorization header** — `Authorization: Basic base64(user:password)`. " +
+      "IMAP/SMTP server config is taken from server env vars (`IMAP_HOST`, `SMTP_HOST`, etc.). " +
+      "Per-request `X-IMAP-*` / `X-SMTP-*` headers are ignored.\n\n" +
+      "2. **X-Mail headers** — `X-Mail-User` + `X-Mail-Password`. " +
+      "IMAP/SMTP server config is provided via `X-IMAP-Host` / `X-SMTP-Host` headers " +
+      "(or env var fallbacks `IMAP_HOST` / `SMTP_HOST`).",
   },
   components: {
     securitySchemes: {
@@ -659,4 +666,3 @@ export async function openapiRoutes(app: FastifyInstance): Promise<void> {
     return reply.type("application/json").send(spec);
   });
 }
-

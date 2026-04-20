@@ -140,7 +140,7 @@ describe("POST /send", () => {
     });
     expect(smtpLib.sendMail).toHaveBeenCalledWith(
       { user: "user@example.com", password: "secret" },
-      { host: "smtp.example.com", port: 587, tls: false },
+      { host: "smtp.example.com", port: 587, tls: true },
       expect.objectContaining({
         from: "user@example.com",
         to: ["alice@example.com"],
