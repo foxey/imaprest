@@ -20,19 +20,19 @@ const imapHeaders = [
     name: "X-IMAP-Host",
     in: "header" as const,
     description:
-      "IMAP server hostname. Used only with X-Mail-User/Password auth; ignored when using Authorization header (falls back to IMAP_HOST env var).",
+      "IMAP server hostname. Used only with X-Mail-User/Password auth; ignored when using Authorization header (falls back to MAIL_IMAP_HOST env var).",
     schema: { type: "string" },
   },
   {
     name: "X-IMAP-Port",
     in: "header" as const,
-    description: "IMAP port. Used only with X-Mail-User/Password auth (default: 993, or IMAP_PORT env var).",
+    description: "IMAP port. Used only with X-Mail-User/Password auth (default: 993, or MAIL_IMAP_PORT env var).",
     schema: { type: "integer", default: 993 },
   },
   {
     name: "X-IMAP-TLS",
     in: "header" as const,
-    description: "Use TLS for IMAP. Used only with X-Mail-User/Password auth (default: true, or IMAP_TLS env var).",
+    description: "Use TLS for IMAP. Used only with X-Mail-User/Password auth (default: true, or MAIL_IMAP_TLS env var).",
     schema: { type: "string", enum: ["true", "false"], default: "true" },
   },
 ];
@@ -42,19 +42,19 @@ const smtpHeaders = [
     name: "X-SMTP-Host",
     in: "header" as const,
     description:
-      "SMTP server hostname. Used only with X-Mail-User/Password auth; ignored when using Authorization header (falls back to SMTP_HOST env var).",
+      "SMTP server hostname. Used only with X-Mail-User/Password auth; ignored when using Authorization header (falls back to MAIL_SMTP_HOST env var).",
     schema: { type: "string" },
   },
   {
     name: "X-SMTP-Port",
     in: "header" as const,
-    description: "SMTP port. Used only with X-Mail-User/Password auth (default: 587, or SMTP_PORT env var).",
+    description: "SMTP port. Used only with X-Mail-User/Password auth (default: 587, or MAIL_SMTP_PORT env var).",
     schema: { type: "integer", default: 587 },
   },
   {
     name: "X-SMTP-TLS",
     in: "header" as const,
-    description: "Use implicit TLS for SMTP. Used only with X-Mail-User/Password auth (default: true, or SMTP_TLS env var).",
+    description: "Use implicit TLS for SMTP. Used only with X-Mail-User/Password auth (default: true, or MAIL_SMTP_TLS env var).",
     schema: { type: "string", enum: ["true", "false"], default: "true" },
   },
 ];
@@ -178,11 +178,11 @@ const spec = {
       "REST API for IMAP/SMTP mail access.\n\n" +
       "**Two authentication modes:**\n\n" +
       "1. **Authorization header** — `Authorization: Basic base64(user:password)`. " +
-      "IMAP/SMTP server config is taken from server env vars (`IMAP_HOST`, `SMTP_HOST`, etc.). " +
+      "IMAP/SMTP server config is taken from server env vars (`MAIL_IMAP_HOST`, `MAIL_SMTP_HOST`, etc.). " +
       "Per-request `X-IMAP-*` / `X-SMTP-*` headers are ignored.\n\n" +
       "2. **X-Mail headers** — `X-Mail-User` + `X-Mail-Password`. " +
       "IMAP/SMTP server config is provided via `X-IMAP-Host` / `X-SMTP-Host` headers " +
-      "(or env var fallbacks `IMAP_HOST` / `SMTP_HOST`).",
+      "(or env var fallbacks `MAIL_IMAP_HOST` / `MAIL_SMTP_HOST`).",
   },
   components: {
     securitySchemes: {
