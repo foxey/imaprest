@@ -54,7 +54,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
     });
     expect(response.statusCode).toBe(401);
     await app.close();
@@ -66,7 +66,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cunknown%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cunknown%40example.com%3E",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -78,7 +78,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -98,7 +98,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -122,7 +122,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
       headers: CRED_HEADERS,
     });
 
@@ -138,7 +138,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
       headers: CRED_HEADERS,
     });
 
@@ -159,7 +159,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(502);
@@ -173,7 +173,7 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/Sent/thread/%3Cabc%40example.com%3E",
+      url: "/imaprest/mailboxes/Sent/thread/%3Cabc%40example.com%3E",
       headers: CRED_HEADERS,
     });
 
@@ -181,3 +181,4 @@ describe("GET /mailboxes/:mailbox/thread/:messageId", () => {
     await app.close();
   });
 });
+

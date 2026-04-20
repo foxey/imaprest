@@ -14,15 +14,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? "info", redact: ["req.headers['x-mail-password']"] },
   });
-  await app.register(openapiRoutes);
-  await app.register(healthRoutes);
-  await app.register(mailboxRoutes);
-  await app.register(searchRoutes);
-  await app.register(messagesRoutes);
-  await app.register(sendRoutes);
-  await app.register(moveCopyRoutes);
-  await app.register(bulkRoutes);
-  await app.register(threadRoutes);
-  await app.register(attachmentRoutes);
+  await app.register(async (api) => {
+    await api.register(openapiRoutes);
+    await api.register(healthRoutes);
+    await api.register(mailboxRoutes);
+    await api.register(searchRoutes);
+    await api.register(messagesRoutes);
+    await api.register(sendRoutes);
+    await api.register(moveCopyRoutes);
+    await api.register(bulkRoutes);
+    await api.register(threadRoutes);
+    await api.register(attachmentRoutes);
+  }, { prefix: "/imaprest" });
   return app;
 }

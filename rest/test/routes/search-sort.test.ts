@@ -58,7 +58,7 @@ describe("GET /mailboxes/:mailbox/messages/search — sort parameter", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&sort=asc",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&sort=asc",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -73,7 +73,7 @@ describe("GET /mailboxes/:mailbox/messages/search — sort parameter", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&sort=desc",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&sort=desc",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -88,7 +88,7 @@ describe("GET /mailboxes/:mailbox/messages/search — sort parameter", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -103,7 +103,7 @@ describe("GET /mailboxes/:mailbox/messages/search — sort parameter", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&sort=random",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&sort=random",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -120,7 +120,7 @@ describe("GET /mailboxes/:mailbox/messages/search — sort parameter", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&sort=asc&cursor=5&limit=2",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&sort=asc&cursor=5&limit=2",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);

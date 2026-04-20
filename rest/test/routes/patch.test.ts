@@ -36,7 +36,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       payload: { seen: true },
     });
     expect(response.statusCode).toBe(401);
@@ -47,7 +47,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/notanumber",
+      url: "/imaprest/mailboxes/INBOX/messages/notanumber",
       headers: CRED_HEADERS,
       payload: { seen: true },
     });
@@ -59,7 +59,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
       payload: {},
     });
@@ -71,7 +71,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
       payload: { seen: "yes" },
     });
@@ -85,7 +85,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/99",
+      url: "/imaprest/mailboxes/INBOX/messages/99",
       headers: CRED_HEADERS,
       payload: { seen: true },
     });
@@ -97,7 +97,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
       payload: { seen: true },
     });
@@ -110,7 +110,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
       payload: { seen: false },
     });
@@ -123,7 +123,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
       payload: { seen: true },
     });
@@ -136,7 +136,7 @@ describe("PATCH /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     await app.inject({
       method: "PATCH",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
       payload: { seen: false },
     });

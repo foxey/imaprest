@@ -60,7 +60,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages",
+      url: "/imaprest/mailboxes/INBOX/messages",
     });
     expect(response.statusCode).toBe(401);
     await app.close();
@@ -70,7 +70,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages",
+      url: "/imaprest/mailboxes/INBOX/messages",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -99,7 +99,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?unseen=true",
+      url: "/imaprest/mailboxes/INBOX/messages?unseen=true",
       headers: CRED_HEADERS,
     });
     expect(mockClient.search).toHaveBeenCalledWith(
@@ -113,7 +113,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?from=alice%40example.com",
+      url: "/imaprest/mailboxes/INBOX/messages?from=alice%40example.com",
       headers: CRED_HEADERS,
     });
     expect(mockClient.search).toHaveBeenCalledWith(
@@ -127,7 +127,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?since=not-a-date",
+      url: "/imaprest/mailboxes/INBOX/messages?since=not-a-date",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -139,7 +139,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages",
+      url: "/imaprest/mailboxes/INBOX/messages",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -155,7 +155,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?cursor=abc",
+      url: "/imaprest/mailboxes/INBOX/messages?cursor=abc",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -167,7 +167,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?limit=-5",
+      url: "/imaprest/mailboxes/INBOX/messages?limit=-5",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -179,7 +179,7 @@ describe("GET /mailboxes/:mailbox/messages", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages?limit=200",
+      url: "/imaprest/mailboxes/INBOX/messages?limit=200",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);

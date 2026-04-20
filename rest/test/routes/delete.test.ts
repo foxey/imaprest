@@ -34,7 +34,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "DELETE",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
     });
     expect(response.statusCode).toBe(401);
     await app.close();
@@ -44,7 +44,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "DELETE",
-      url: "/mailboxes/INBOX/messages/notanumber",
+      url: "/imaprest/mailboxes/INBOX/messages/notanumber",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -55,7 +55,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "DELETE",
-      url: "/mailboxes/INBOX/messages/0",
+      url: "/imaprest/mailboxes/INBOX/messages/0",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -68,7 +68,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "DELETE",
-      url: "/mailboxes/INBOX/messages/99",
+      url: "/imaprest/mailboxes/INBOX/messages/99",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(404);
@@ -79,7 +79,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "DELETE",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(204);
@@ -91,7 +91,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     await app.inject({
       method: "DELETE",
-      url: "/mailboxes/INBOX/messages/10",
+      url: "/imaprest/mailboxes/INBOX/messages/10",
       headers: CRED_HEADERS,
     });
     expect(mockClient.messageMove).toHaveBeenCalledWith([10], "Trash", { uid: true });
@@ -102,7 +102,7 @@ describe("DELETE /mailboxes/:mailbox/messages/:uid", () => {
     const app = await buildApp();
     await app.inject({
       method: "DELETE",
-      url: "/mailboxes/Sent/messages/10",
+      url: "/imaprest/mailboxes/Sent/messages/10",
       headers: CRED_HEADERS,
     });
     expect(mockClient.mailboxOpen).toHaveBeenCalledWith("Sent");

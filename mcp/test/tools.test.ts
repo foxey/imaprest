@@ -72,7 +72,7 @@ describe('list_mailboxes', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes');
     expect(opts.method).toBe('GET');
     expect(opts.headers['X-IMAP-Host']).toBe('imap.test.com');
 
@@ -101,7 +101,7 @@ describe('list_messages', () => {
     });
 
     const [url] = fetchSpy.mock.calls[0];
-    expect(url).toContain('/mailboxes/INBOX/messages?');
+    expect(url).toContain('/imaprest/mailboxes/INBOX/messages?');
     expect(url).toContain('unseen=true');
     expect(url).toContain('from=alice%40test.com');
     expect(url).toContain('since=2025-01-01');
@@ -114,7 +114,7 @@ describe('list_messages', () => {
     await callTool('list_messages', { mailbox: 'INBOX' });
 
     const [url] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes/INBOX/messages');
   });
 
   it('encodes mailbox name in path', async () => {
@@ -123,7 +123,7 @@ describe('list_messages', () => {
     await callTool('list_messages', { mailbox: 'Sent Items' });
 
     const [url] = fetchSpy.mock.calls[0];
-    expect(url).toContain('/mailboxes/Sent%20Items/messages');
+    expect(url).toContain('/imaprest/mailboxes/Sent%20Items/messages');
   });
 });
 
@@ -135,7 +135,7 @@ describe('get_message', () => {
     const result = await callTool('get_message', { mailbox: 'INBOX', uid: 42 });
 
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages/42');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes/INBOX/messages/42');
     expect(opts.method).toBe('GET');
     expect(parseToolText(result)).toEqual({ status: 200, data: msg });
   });
@@ -148,7 +148,7 @@ describe('delete_message', () => {
     const result = await callTool('delete_message', { mailbox: 'INBOX', uid: 7 });
 
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages/7');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes/INBOX/messages/7');
     expect(opts.method).toBe('DELETE');
     expect(result.isError).toBeFalsy();
   });
@@ -161,7 +161,7 @@ describe('mark_message', () => {
     await callTool('mark_message', { mailbox: 'INBOX', uid: 5, seen: true });
 
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages/5');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes/INBOX/messages/5');
     expect(opts.method).toBe('PATCH');
     expect(JSON.parse(opts.body)).toEqual({ seen: true });
   });
@@ -178,7 +178,7 @@ describe('reply_to_message', () => {
     });
 
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages/10/reply');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes/INBOX/messages/10/reply');
     expect(opts.method).toBe('POST');
     expect(opts.headers['X-IMAP-Host']).toBe('imap.test.com');
     expect(opts.headers['X-SMTP-Host']).toBe('smtp.test.com');
@@ -200,7 +200,7 @@ describe('send_email', () => {
     });
 
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/send');
+    expect(url).toBe('http://localhost:9999/imaprest/send');
     expect(opts.method).toBe('POST');
     expect(opts.headers['X-SMTP-Host']).toBe('smtp.test.com');
     expect(JSON.parse(opts.body)).toEqual({
@@ -256,7 +256,7 @@ describe('get_thread', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, opts] = fetchSpy.mock.calls[0];
     expect(url).toBe(
-      'http://localhost:9999/mailboxes/INBOX/thread/%3Cabc%40example.com%3E',
+      'http://localhost:9999/imaprest/mailboxes/INBOX/thread/%3Cabc%40example.com%3E',
     );
     expect(opts.method).toBe('GET');
     expect(result.isError).toBeFalsy();
@@ -293,7 +293,7 @@ describe('download_attachment', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, opts] = fetchSpy.mock.calls[0];
-    expect(url).toBe('http://localhost:9999/mailboxes/INBOX/messages/42/attachments/0');
+    expect(url).toBe('http://localhost:9999/imaprest/mailboxes/INBOX/messages/42/attachments/0');
     expect(opts.method).toBe('GET');
     expect(result.isError).toBe(false);
     // Verify the response is base64-encoded
@@ -379,3 +379,4 @@ describe('search_messages with sort', () => {
     expect(url).toContain('sort=asc');
   });
 });
+

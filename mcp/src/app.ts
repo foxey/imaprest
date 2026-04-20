@@ -65,7 +65,7 @@ export async function callImaprest(
   headers: Record<string, string>,
   body?: unknown,
 ): Promise<{ status: number; data: unknown }> {
-  const res = await fetch(`${imaprestUrl}${path}`, {
+  const res = await fetch(`${imaprestUrl}/imaprest${path}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -206,7 +206,7 @@ export function buildMcpServer(cfg: McpAppConfig): McpServer {
     },
     async ({ mailbox, uid, index }: { mailbox: string; uid: number; index: number }) => {
       const path = `/mailboxes/${encodeURIComponent(mailbox)}/messages/${uid}/attachments/${index}`;
-      const res = await fetch(`${cfg.imaprestUrl}${path}`, {
+      const res = await fetch(`${cfg.imaprestUrl}/imaprest${path}`, {
         method: 'GET',
         headers: hdrs.imap,
       });
@@ -592,3 +592,4 @@ export function createHttpServer(cfg: McpAppConfig): http.Server {
     }
   });
 }
+

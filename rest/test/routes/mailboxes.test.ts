@@ -37,7 +37,7 @@ describe("GET /mailboxes", () => {
 
   it("returns 401 when all credential headers are missing", async () => {
     const app = await buildApp();
-    const response = await app.inject({ method: "GET", url: "/mailboxes" });
+    const response = await app.inject({ method: "GET", url: "/imaprest/mailboxes" });
     expect(response.statusCode).toBe(401);
     expect(JSON.parse(response.body)).toMatchObject({ error: expect.any(String) });
     await app.close();
@@ -47,7 +47,7 @@ describe("GET /mailboxes", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes",
+      url: "/imaprest/mailboxes",
       headers: { "x-mail-user": "user@example.com", "x-mail-password": "secret" },
     });
     expect(response.statusCode).toBe(401);
@@ -58,7 +58,7 @@ describe("GET /mailboxes", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes",
+      url: "/imaprest/mailboxes",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -75,3 +75,4 @@ describe("GET /mailboxes", () => {
     await app.close();
   });
 });
+

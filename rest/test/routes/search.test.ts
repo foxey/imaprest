@@ -60,7 +60,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test",
     });
     expect(response.statusCode).toBe(401);
     await app.close();
@@ -70,7 +70,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -88,7 +88,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(200);
@@ -104,7 +104,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&cursor=abc",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&cursor=abc",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -116,7 +116,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&limit=-5",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&limit=-5",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -128,7 +128,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?q=test&limit=200",
+      url: "/imaprest/mailboxes/INBOX/messages/search?q=test&limit=200",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -140,7 +140,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search",
+      url: "/imaprest/mailboxes/INBOX/messages/search",
       headers: CRED_HEADERS,
     });
     expect(response.statusCode).toBe(400);
@@ -151,7 +151,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?from=alice%40example.com",
+      url: "/imaprest/mailboxes/INBOX/messages/search?from=alice%40example.com",
       headers: CRED_HEADERS,
     });
     expect(mockClient.search).toHaveBeenCalledWith(
@@ -165,7 +165,7 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     const app = await buildApp();
     await app.inject({
       method: "GET",
-      url: "/mailboxes/INBOX/messages/search?from=alice%40example.com&cursor=50",
+      url: "/imaprest/mailboxes/INBOX/messages/search?from=alice%40example.com&cursor=50",
       headers: CRED_HEADERS,
     });
     expect(mockClient.search).toHaveBeenCalledWith(
@@ -175,3 +175,4 @@ describe("GET /mailboxes/:mailbox/messages/search", () => {
     await app.close();
   });
 });
+

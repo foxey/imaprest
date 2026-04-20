@@ -188,7 +188,7 @@ const spec = {
   },
   security: [{ basicAuth: [] }],
   paths: {
-    "/health": {
+    "/imaprest/health": {
       get: {
         summary: "Health check",
         security: [],
@@ -204,7 +204,7 @@ const spec = {
         },
       },
     },
-    "/openapi.json": {
+    "/imaprest/openapi.json": {
       get: {
         summary: "OpenAPI specification",
         security: [],
@@ -213,7 +213,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes": {
+    "/imaprest/mailboxes": {
       get: {
         summary: "List mailboxes",
         parameters: [...credentialHeaders, ...imapHeaders],
@@ -242,7 +242,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages": {
+    "/imaprest/mailboxes/{mailbox}/messages": {
       get: {
         summary: "List messages",
         parameters: [
@@ -293,7 +293,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/search": {
+    "/imaprest/mailboxes/{mailbox}/messages/search": {
       get: {
         summary: "Search messages (requires at least one filter criterion)",
         parameters: [
@@ -312,7 +312,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/move": {
+    "/imaprest/mailboxes/{mailbox}/messages/move": {
       post: {
         summary: "Bulk move messages",
         parameters: [
@@ -350,7 +350,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/copy": {
+    "/imaprest/mailboxes/{mailbox}/messages/copy": {
       post: {
         summary: "Bulk copy messages",
         parameters: [
@@ -388,7 +388,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/{uid}": {
+    "/imaprest/mailboxes/{mailbox}/messages/{uid}": {
       get: {
         summary: "Get message by UID",
         parameters: [
@@ -455,7 +455,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/{uid}/reply": {
+    "/imaprest/mailboxes/{mailbox}/messages/{uid}/reply": {
       post: {
         summary: "Reply to a message",
         parameters: [
@@ -502,7 +502,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/{uid}/move": {
+    "/imaprest/mailboxes/{mailbox}/messages/{uid}/move": {
       post: {
         summary: "Move a single message",
         parameters: [
@@ -534,7 +534,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/{uid}/copy": {
+    "/imaprest/mailboxes/{mailbox}/messages/{uid}/copy": {
       post: {
         summary: "Copy a single message",
         parameters: [
@@ -566,7 +566,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/messages/{uid}/attachments/{index}": {
+    "/imaprest/mailboxes/{mailbox}/messages/{uid}/attachments/{index}": {
       get: {
         summary: "Download an attachment",
         parameters: [
@@ -583,7 +583,7 @@ const spec = {
         },
       },
     },
-    "/mailboxes/{mailbox}/thread/{messageId}": {
+    "/imaprest/mailboxes/{mailbox}/thread/{messageId}": {
       get: {
         summary: "Get thread by Message-ID",
         parameters: [
@@ -607,7 +607,7 @@ const spec = {
         },
       },
     },
-    "/send": {
+    "/imaprest/send": {
       post: {
         summary: "Send a new email",
         parameters: [...credentialHeaders, ...smtpHeaders],
@@ -659,3 +659,4 @@ export async function openapiRoutes(app: FastifyInstance): Promise<void> {
     return reply.type("application/json").send(spec);
   });
 }
+
