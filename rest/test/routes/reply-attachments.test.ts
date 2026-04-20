@@ -58,7 +58,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {
         text: "My reply",
@@ -80,7 +80,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {
         text: "My reply",
@@ -95,7 +95,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {
         text: "My reply",
@@ -110,7 +110,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {
         text: "My reply",
@@ -125,7 +125,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {
         text: "My reply",
@@ -146,7 +146,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply" },
     });
@@ -159,7 +159,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     const response = await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: { text: "My reply", attachments: [] },
     });
@@ -172,7 +172,7 @@ describe("POST /mailboxes/:mailbox/messages/:uid/reply — attachments", () => {
     const app = await buildApp();
     await app.inject({
       method: "POST",
-      url: "/mailboxes/INBOX/messages/10/reply",
+      url: "/imaprest/mailboxes/INBOX/messages/10/reply",
       headers: CRED_HEADERS,
       payload: {
         text: "My reply",
