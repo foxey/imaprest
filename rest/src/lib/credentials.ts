@@ -33,7 +33,7 @@ function getHeader(headers: Headers, name: string): string | undefined {
 function parseBasicAuth(authHeader: string): { user: string; password: string } | null {
   if (!authHeader.startsWith("Basic ")) return null;
   try {
-    const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf8");
+    const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf8").trimEnd();
     const colonIndex = decoded.indexOf(":");
     if (colonIndex === -1) return null;
     return { user: decoded.slice(0, colonIndex), password: decoded.slice(colonIndex + 1) };
