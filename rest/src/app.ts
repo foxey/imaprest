@@ -12,7 +12,7 @@ import { attachmentRoutes } from "./routes/attachments";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: { level: process.env.LOG_LEVEL ?? "info", redact: ["req.headers['x-mail-password']"] },
+    logger: { level: process.env.LOG_LEVEL ?? "info", redact: ["req.headers['x-mail-password']", "req.headers['authorization']"] },
   });
   await app.register(async (api) => {
     await api.register(openapiRoutes);
