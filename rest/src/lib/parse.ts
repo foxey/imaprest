@@ -19,7 +19,7 @@ export interface ParsedMessage {
   attachments: Attachment[];
   messageId: string | null;
   references: string[];
-  received: string[];
+  received?: string[];
 }
 
 export function htmlToMarkdown(html: string): string {
@@ -81,18 +81,12 @@ function formatAddresses(
 
 export async function parseRawMessage(
   uid: number,
-  source: Buffer
+  source: Buffer,
+  options?: { includeReceived?: boolean }
 ): Promise<ParsedMessage> {
   const parsed = await simpleParser(source);
 
-  const receivedRaw = parsed.headers.get("received");
-  const received = Array.isArray(receivedRaw)
-    ? receivedRaw.map(String)
-    : receivedRaw
-      ? [String(receivedRaw)]
-      : [];
-
-  return {
+  const result: ParsedMessage = {
     uid,
     date: parsed.date?.toISOString() ?? "",
     from: formatAddresses(parsed.from)[0] ?? "",
@@ -115,6 +109,16 @@ export async function parseRawMessage(
       : parsed.references
         ? [parsed.references]
         : [],
-    received,
   };
+
+  if (options?.includeReceived) {
+    const receivedRaw = parsed.headers.get("received");
+    result.received = Array.isArray(receivedRaw)
+      ? receivedRaw.map(String)
+      : receivedRaw
+        ? [String(receivedRaw)]
+        : [];
+  }
+
+  return result;
 }
