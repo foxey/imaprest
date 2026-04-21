@@ -22,7 +22,7 @@ interface MessageSummary {
 
 type MailboxParams = { mailbox: string };
 type ListQuerystring = SearchParams & { cursor?: string; sort?: string };
-type GetMessageQuerystring = { received?: string };
+type GetMessageQuerystring = { headers?: string };
 
 export async function messagesRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: MailboxParams; Querystring: ListQuerystring }>(
@@ -167,7 +167,7 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
         )) {
           if (msg.source) {
             result = await parseRawMessage(msg.uid, msg.source, {
-              includeReceived: request.query.received === 'true',
+              includeHeaders: request.query.headers === 'true',
             });
           }
           break;
