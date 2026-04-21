@@ -161,7 +161,13 @@ const fullMessageSchema = {
     attachments: { type: "array", items: attachmentSchema },
     references: { type: "array", items: { type: "string" } },
     inReplyTo: { type: "string", nullable: true },
-    received: { type: "array", items: { type: "string" } },
+    headers: {
+      type: "object",
+      description: "All message headers, keyed by lowercase header name. Present only when ?headers=true is passed.",
+      additionalProperties: {
+        oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+      },
+    },
   },
 };
 
@@ -403,9 +409,9 @@ const spec = {
           { name: "mailbox", in: "path", required: true, schema: { type: "string" } },
           { name: "uid", in: "path", required: true, schema: { type: "integer" } },
           {
-            name: "received",
+            name: "headers",
             in: "query" as const,
-            description: "Include the Received header chain in the response (default: false)",
+            description: "Include all message headers as a map in the response (default: false)",
             schema: { type: "boolean" },
           },
           ...credentialHeaders,
