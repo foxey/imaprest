@@ -22,6 +22,7 @@ interface MessageSummary {
 
 type MailboxParams = { mailbox: string };
 type ListQuerystring = SearchParams & { cursor?: string; sort?: string };
+type GetMessageQuerystring = { received?: string };
 
 export async function messagesRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: MailboxParams; Querystring: ListQuerystring }>(
@@ -131,10 +132,10 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
 
   type MessageParams = { mailbox: string; uid: string };
 
-  app.get<{ Params: MessageParams }>(
+  app.get<{ Params: MessageParams; Querystring: GetMessageQuerystring }>(
     "/mailboxes/:mailbox/messages/:uid",
     async (
-      request: FastifyRequest<{ Params: MessageParams }>,
+      request: FastifyRequest<{ Params: MessageParams; Querystring: GetMessageQuerystring }>,
       reply: FastifyReply
     ) => {
       let creds;
@@ -165,7 +166,9 @@ export async function messagesRoutes(app: FastifyInstance): Promise<void> {
           { uid: true }
         )) {
           if (msg.source) {
-            result = await parseRawMessage(msg.uid, msg.source);
+            result = await parseRawMessage(msg.uid, msg.source, {
+              includeReceived: request.query.received === 'true',
+            });
           }
           break;
         }
