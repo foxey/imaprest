@@ -106,7 +106,24 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     );
     expect(parseLib.parseRawMessage).toHaveBeenCalledWith(
       42,
-      expect.any(Buffer)
+      expect.any(Buffer),
+      { includeHeaders: false }
+    );
+    await app.close();
+  });
+
+  it("passes includeHeaders: true when ?headers=true is set", async () => {
+    const app = await buildApp();
+    const response = await app.inject({
+      method: "GET",
+      url: "/imaprest/mailboxes/INBOX/messages/42?headers=true",
+      headers: CRED_HEADERS,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(parseLib.parseRawMessage).toHaveBeenCalledWith(
+      42,
+      expect.any(Buffer),
+      { includeHeaders: true }
     );
     await app.close();
   });
@@ -158,4 +175,3 @@ describe("GET /mailboxes/:mailbox/messages/:uid", () => {
     await app.close();
   });
 });
-
