@@ -19,7 +19,7 @@ export interface ParsedMessage {
   attachments: Attachment[];
   messageId: string | null;
   references: string[];
-  received?: string[];
+  headers?: Record<string, string | string[]>;
 }
 
 export function htmlToMarkdown(html: string): string {
@@ -82,7 +82,7 @@ function formatAddresses(
 export async function parseRawMessage(
   uid: number,
   source: Buffer,
-  options?: { includeReceived?: boolean }
+  options?: { includeHeaders?: boolean }
 ): Promise<ParsedMessage> {
   const parsed = await simpleParser(source);
 
@@ -111,13 +111,16 @@ export async function parseRawMessage(
         : [],
   };
 
-  if (options?.includeReceived) {
-    const receivedRaw = parsed.headers.get("received");
-    result.received = Array.isArray(receivedRaw)
-      ? receivedRaw.map(String)
-      : receivedRaw
-        ? [String(receivedRaw)]
-        : [];
+  if (options?.includeHeaders) {
+    const headers: Record<string, string | string[]> = {};
+    for (const [key, value] of parsed.headers) {
+      if (Array.isArray(value)) {
+        headers[key] = value.map(String);
+      } else {
+        headers[key] = String(value);
+      }
+    }
+    result.headers = headers;
   }
 
   return result;
