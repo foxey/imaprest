@@ -1,389 +1,220 @@
-import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import {
-  CredentialError,
-  extractCredentials,
-  extractImapConfig,
-  extractSmtpConfig,
-} from "../lib/credentials";
-import { createImapClient, disconnectImapClient } from "../lib/imap";
-import { buildUidRangeCriteria, buildUidRangeCriteriaAsc, paginateUids } from "../lib/paginate";
-import { parseRawMessage } from "../lib/parse";
-import { buildSearchCriteria, SearchParams } from "../lib/search";
-import { sendMail } from "../lib/smtp";
-import { validateAttachments, validatePaginationParams, validateSortParam } from "../lib/validate";
+import { FastifyInstance, FastifyRequest } from "fastify";
+import { getAccessToken } from "../auth/token-manager";
+import { graphGet, graphPost, graphPatch, graphDelete } from "../graph/client";
 
-interface MessageSummary {
-  uid: number;
-  from: string;
-  subject: string;
-  date: string;
-  seen: boolean;
+interface FolderParams {
+  folderId: string;
 }
 
-type MailboxParams = { mailbox: string };
-type ListQuerystring = SearchParams & { cursor?: string; sort?: string };
-type GetMessageQuerystring = { headers?: string };
+interface WildcardParams {
+  "*": string;
+}
+
+interface ListMessagesQuery {
+  $top?: string;
+  $skip?: string;
+  $filter?: string;
+  $search?: string;
+  $orderby?: string;
+  $select?: string;
+}
+
+interface MoveBody {
+  destinationId: string;
+}
+
+type MessagePathResult =
+  | { type: "message"; messageId: string }
+  | { type: "attachments"; messageId: string }
+  | { type: "attachment"; messageId: string; attachmentId: string }
+  | { type: "move"; messageId: string }
+  | { type: "copy"; messageId: string };
+
+/**
+ * Parse the wildcard portion of a /messages/* route.
+ *
+ * Fastify / find-my-way decodes %2F to "/" before routing, which breaks named
+ * params for Microsoft Graph message IDs that contain "/" when URL-encoded.
+ * A single wildcard route captures the entire sub-path, letting us dispatch here.
+ *
+ * Recognised patterns (checked in order):
+ *   <id>/move            → { type: "move" }
+ *   <id>/copy            → { type: "copy" }
+ *   <id>/attachments     → { type: "attachments" }
+ *   <id>/attachments/<a> → { type: "attachment" }
+ *   <id>                 → { type: "message" }
+ */
+export function parseMessagePath(raw: string): MessagePathResult {
+  if (raw.endsWith("/move")) return { type: "move", messageId: raw.slice(0, -5) };
+  if (raw.endsWith("/copy")) return { type: "copy", messageId: raw.slice(0, -5) };
+  if (raw.endsWith("/attachments")) return { type: "attachments", messageId: raw.slice(0, -12) };
+  const attachIdx = raw.lastIndexOf("/attachments/");
+  if (attachIdx !== -1) {
+    return {
+      type: "attachment",
+      messageId: raw.slice(0, attachIdx),
+      attachmentId: raw.slice(attachIdx + 13),
+    };
+  }
+  return { type: "message", messageId: raw };
+}
+
+function getPassword(request: FastifyRequest): string {
+  return (request as FastifyRequest & { servicePassword: string }).servicePassword;
+}
 
 export async function messagesRoutes(app: FastifyInstance): Promise<void> {
-  app.get<{ Params: MailboxParams; Querystring: ListQuerystring }>(
-    "/mailboxes/:mailbox/messages",
-    async (
-      request: FastifyRequest<{ Params: MailboxParams; Querystring: ListQuerystring }>,
-      reply: FastifyReply
-    ) => {
-      let creds;
-      let imap;
-      try {
-        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
-        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
-      } catch (err) {
-        if (err instanceof CredentialError) {
-          return reply.status(401).send({ error: err.message });
-        }
-        throw err;
+  // List messages in a folder
+  app.get<{ Params: FolderParams; Querystring: ListMessagesQuery }>(
+    "/mailboxes/:folderId/messages",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const { folderId } = request.params;
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(request.query)) {
+        if (v !== undefined) params.set(k, v);
       }
-
-      let pagination;
-      try {
-        pagination = validatePaginationParams(request.query.cursor, request.query.limit);
-      } catch (err) {
-        return reply.status(400).send({ error: (err as Error).message });
-      }
-
-      let searchCriteria;
-      try {
-        searchCriteria = buildSearchCriteria(request.query);
-      } catch (err) {
-        return reply.status(400).send({ error: (err as Error).message });
-      }
-
-      let sortDirection: 'asc' | 'desc';
-      try {
-        sortDirection = validateSortParam(request.query.sort);
-      } catch (err) {
-        return reply.status(400).send({ error: (err as Error).message });
-      }
-
-      const client = await createImapClient(creds, imap);
-      try {
-        await client.mailboxOpen(request.params.mailbox);
-
-        const mailbox = client.mailbox;
-        const uidNext = mailbox ? mailbox.uidNext : 1;
-
-        // UID range strategy:
-        // - Unfiltered listing: use tight UID window for IMAP-level efficiency
-        // - Filtered listing: use simple ceiling/floor since matching
-        //   UIDs may be scattered across the entire mailbox
-        const hasSearchFilters = Object.keys(searchCriteria).length > 0;
-        let uidRangeCriteria: { uid?: string } = {};
-        if (sortDirection === 'asc') {
-          if (hasSearchFilters) {
-            if (pagination.cursor !== undefined) {
-              uidRangeCriteria = { uid: `${pagination.cursor + 1}:*` };
-            }
-          } else {
-            uidRangeCriteria = buildUidRangeCriteriaAsc(pagination.cursor);
-          }
-        } else {
-          if (hasSearchFilters) {
-            if (pagination.cursor !== undefined) {
-              uidRangeCriteria = { uid: `1:${pagination.cursor - 1}` };
-            }
-          } else {
-            uidRangeCriteria = buildUidRangeCriteria(pagination.cursor, pagination.limit, uidNext);
-          }
-        }
-
-        const criteria = { ...searchCriteria, ...uidRangeCriteria };
-
-        const uids = await client.search(criteria, { uid: true });
-        if (!uids || uids.length === 0) {
-          return reply.send({ messages: [], nextCursor: null, hasMore: false });
-        }
-
-        const page = paginateUids(uids, pagination.limit, sortDirection);
-
-        const messages: MessageSummary[] = [];
-        for await (const msg of client.fetch(
-          page.uids,
-          { uid: true, envelope: true, flags: true },
-          { uid: true }
-        )) {
-          messages.push({
-            uid: msg.uid,
-            from: msg.envelope?.from?.[0]?.address ?? "",
-            subject: msg.envelope?.subject ?? "",
-            date: msg.envelope?.date?.toISOString() ?? "",
-            seen: msg.flags?.has("\\Seen") ?? false,
-          });
-        }
-
-        return reply.send({
-          messages,
-          nextCursor: page.nextCursor,
-          hasMore: page.hasMore,
-        });
-      } finally {
-        await disconnectImapClient(client);
-      }
+      if (!params.has("$top")) params.set("$top", "25");
+      const qs = params.toString();
+      const data = await graphGet(
+        `/me/mailFolders/${folderId}/messages${qs ? `?${qs}` : ""}`,
+        accessToken
+      );
+      return reply.send(data);
     }
   );
 
-  type MessageParams = { mailbox: string; uid: string };
-
-  app.get<{ Params: MessageParams; Querystring: GetMessageQuerystring }>(
-    "/mailboxes/:mailbox/messages/:uid",
-    async (
-      request: FastifyRequest<{ Params: MessageParams; Querystring: GetMessageQuerystring }>,
-      reply: FastifyReply
-    ) => {
-      let creds;
-      let imap;
-      try {
-        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
-        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
-      } catch (err) {
-        if (err instanceof CredentialError) {
-          return reply.status(401).send({ error: err.message });
-        }
-        throw err;
-      }
-
-      const uidInt = parseInt(request.params.uid, 10);
-      if (isNaN(uidInt) || uidInt <= 0) {
-        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
-      }
-
-      const client = await createImapClient(creds, imap);
-      try {
-        await client.mailboxOpen(request.params.mailbox);
-
-        let result = null;
-        for await (const msg of client.fetch(
-          [uidInt],
-          { uid: true, source: true },
-          { uid: true }
-        )) {
-          if (msg.source) {
-            result = await parseRawMessage(msg.uid, msg.source, {
-              includeHeaders: request.query.headers === 'true',
-            });
-          }
-          break;
-        }
-
-        if (result === null) {
-          return reply.status(404).send({ error: "Message not found" });
-        }
-
-        return reply.send(result);
-      } finally {
-        await disconnectImapClient(client);
-      }
+  // Get conversation thread (all messages in a conversation)
+  app.get<{ Params: { conversationId: string } }>(
+    "/conversations/:conversationId/messages",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const data = await graphGet(
+        `/me/messages?$filter=conversationId eq '${encodeURIComponent(request.params.conversationId)}'&$orderby=receivedDateTime asc`,
+        accessToken
+      );
+      return reply.send(data);
     }
   );
 
-  type DeleteParams = { mailbox: string; uid: string };
-
-  app.delete<{ Params: DeleteParams }>(
-    "/mailboxes/:mailbox/messages/:uid",
-    async (
-      request: FastifyRequest<{ Params: DeleteParams }>,
-      reply: FastifyReply
-    ) => {
-      let creds;
-      let imap;
-      try {
-        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
-        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
-      } catch (err) {
-        if (err instanceof CredentialError) {
-          return reply.status(401).send({ error: err.message });
-        }
-        throw err;
-      }
-
-      const uidInt = parseInt(request.params.uid, 10);
-      if (isNaN(uidInt) || uidInt <= 0) {
-        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
-      }
-
-      const client = await createImapClient(creds, imap);
-      try {
-        await client.mailboxOpen(request.params.mailbox);
-
-        const found = await client.search({ uid: String(uidInt) }, { uid: true });
-        if (!found || found.length === 0) {
-          return reply.status(404).send({ error: "Message not found" });
-        }
-
-        await client.messageMove([uidInt], "Trash", { uid: true });
-
-        return reply.status(204).send();
-      } finally {
-        await disconnectImapClient(client);
-      }
+  // Search messages — static route registered before wildcard so find-my-way gives it priority
+  app.get<{ Querystring: { q: string; $top?: string } }>(
+    "/messages/search",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const params = new URLSearchParams({
+        $search: `"${request.query.q}"`,
+        $top: request.query.$top ?? "25",
+      });
+      const data = await graphGet(`/me/messages?${params.toString()}`, accessToken);
+      return reply.send(data);
     }
   );
 
-  type PatchParams = { mailbox: string; uid: string };
+  // GET /messages/* — get message, list attachments, or get a specific attachment.
+  // Using a wildcard instead of named params (:messageId) so that base64 message IDs
+  // containing "%" or "/" (decoded from %2F by find-my-way before route matching) are
+  // captured correctly. The extracted ID is re-encoded with encodeURIComponent before
+  // being forwarded to the Graph API.
+  app.get<{ Params: WildcardParams }>(
+    "/messages/*",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const parsed = parseMessagePath(request.params["*"]);
 
-  interface PatchBody {
-    seen?: unknown;
-  }
-
-  app.patch<{ Params: PatchParams; Body: PatchBody }>(
-    "/mailboxes/:mailbox/messages/:uid",
-    async (
-      request: FastifyRequest<{ Params: PatchParams; Body: PatchBody }>,
-      reply: FastifyReply
-    ) => {
-      let creds;
-      let imap;
-      try {
-        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
-        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
-      } catch (err) {
-        if (err instanceof CredentialError) {
-          return reply.status(401).send({ error: err.message });
-        }
-        throw err;
-      }
-
-      const uidInt = parseInt(request.params.uid, 10);
-      if (isNaN(uidInt) || uidInt <= 0) {
-        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
-      }
-
-      const body = request.body ?? {};
-
-      if (typeof body.seen !== "boolean") {
-        return reply.status(400).send({ error: "'seen' must be a boolean" });
-      }
-
-      const client = await createImapClient(creds, imap);
-      try {
-        await client.mailboxOpen(request.params.mailbox);
-
-        const found = await client.search({ uid: String(uidInt) }, { uid: true });
-        if (!found || found.length === 0) {
-          return reply.status(404).send({ error: "Message not found" });
-        }
-
-        if (body.seen) {
-          await client.messageFlagsAdd([uidInt], ["\\Seen"], { uid: true });
-        } else {
-          await client.messageFlagsRemove([uidInt], ["\\Seen"], { uid: true });
-        }
-
-        return reply.send({ uid: uidInt, seen: body.seen });
-      } finally {
-        await disconnectImapClient(client);
-      }
-    }
-  );
-
-  type ReplyParams = { mailbox: string; uid: string };
-
-  interface ReplyBody {
-    text?: unknown;
-    html?: unknown;
-    attachments?: unknown;
-  }
-
-  app.post<{ Params: ReplyParams; Body: ReplyBody }>(
-    "/mailboxes/:mailbox/messages/:uid/reply",
-    async (
-      request: FastifyRequest<{ Params: ReplyParams; Body: ReplyBody }>,
-      reply: FastifyReply
-    ) => {
-      let creds;
-      let imap;
-      let smtp;
-      try {
-        creds = extractCredentials(request.headers as Record<string, string | string[] | undefined>);
-        imap = extractImapConfig(request.headers as Record<string, string | string[] | undefined>);
-        smtp = extractSmtpConfig(request.headers as Record<string, string | string[] | undefined>);
-      } catch (err) {
-        if (err instanceof CredentialError) {
-          return reply.status(401).send({ error: err.message });
-        }
-        throw err;
-      }
-
-      const uidInt = parseInt(request.params.uid, 10);
-      if (isNaN(uidInt) || uidInt <= 0) {
-        return reply.status(400).send({ error: "Invalid UID — must be a positive integer" });
-      }
-
-      const body = request.body ?? {};
-
-      if (
-        (typeof body.text !== "string" || body.text.trim() === "") &&
-        (typeof body.html !== "string" || body.html.trim() === "")
-      ) {
-        return reply
-          .status(400)
-          .send({ error: "At least one of 'text' or 'html' is required" });
-      }
-
-      let validatedAttachments;
-      if (body.attachments && Array.isArray(body.attachments) && body.attachments.length > 0) {
-        try {
-          validatedAttachments = validateAttachments(body.attachments);
-        } catch (err) {
-          return reply.status(400).send({ error: (err as Error).message });
-        }
-      }
-
-      const client = await createImapClient(creds, imap);
-      try {
-        await client.mailboxOpen(request.params.mailbox);
-
-        let original = null;
-        for await (const msg of client.fetch(
-          [uidInt],
-          { uid: true, source: true },
-          { uid: true }
-        )) {
-          if (msg.source) {
-            original = await parseRawMessage(msg.uid, msg.source);
-          }
-          break;
-        }
-
-        if (original === null) {
-          return reply.status(404).send({ error: "Message not found" });
-        }
-
-        const reSubject = original.subject.match(/^re:\s/i)
-          ? original.subject
-          : `Re: ${original.subject}`;
-
-        const references = original.messageId
-          ? [...original.references, original.messageId]
-          : original.references;
-
-        await sendMail(
-          creds,
-          smtp,
-          {
-            from: creds.user,
-            to: [original.from],
-            subject: reSubject,
-            text: typeof body.text === "string" ? body.text : null,
-            html: typeof body.html === "string" ? body.html : null,
-            inReplyTo: original.messageId,
-            references,
-            ...(validatedAttachments ? { attachments: validatedAttachments } : {}),
-          }
+      if (parsed.type === "message") {
+        const data = await graphGet(
+          `/me/messages/${encodeURIComponent(parsed.messageId)}`,
+          accessToken
         );
-
-        return reply.status(202).send({ queued: true });
-      } finally {
-        await disconnectImapClient(client);
+        return reply.send(data);
       }
+
+      if (parsed.type === "attachments") {
+        const data = await graphGet(
+          `/me/messages/${encodeURIComponent(parsed.messageId)}/attachments`,
+          accessToken
+        );
+        return reply.send(data);
+      }
+
+      if (parsed.type === "attachment") {
+        const data = await graphGet(
+          `/me/messages/${encodeURIComponent(parsed.messageId)}/attachments/${encodeURIComponent(parsed.attachmentId)}`,
+          accessToken
+        );
+        return reply.send(data);
+      }
+
+      return reply.status(404).send({ error: "Not found" });
+    }
+  );
+
+  // POST /messages/* — move or copy a message
+  app.post<{ Params: WildcardParams; Body: MoveBody }>(
+    "/messages/*",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const parsed = parseMessagePath(request.params["*"]);
+
+      if (parsed.type === "move") {
+        const data = await graphPost(
+          `/me/messages/${encodeURIComponent(parsed.messageId)}/move`,
+          { destinationId: request.body.destinationId },
+          accessToken
+        );
+        return reply.send(data);
+      }
+
+      if (parsed.type === "copy") {
+        const data = await graphPost(
+          `/me/messages/${encodeURIComponent(parsed.messageId)}/copy`,
+          { destinationId: request.body.destinationId },
+          accessToken
+        );
+        return reply.send(data);
+      }
+
+      return reply.status(404).send({ error: "Not found" });
+    }
+  );
+
+  // PATCH /messages/* — update a message (e.g. mark as read/unread)
+  app.patch<{ Params: WildcardParams; Body: Record<string, unknown> }>(
+    "/messages/*",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const parsed = parseMessagePath(request.params["*"]);
+
+      if (parsed.type !== "message") {
+        return reply.status(404).send({ error: "Not found" });
+      }
+
+      const data = await graphPatch(
+        `/me/messages/${encodeURIComponent(parsed.messageId)}`,
+        request.body,
+        accessToken
+      );
+      return reply.send(data);
+    }
+  );
+
+  // DELETE /messages/* — delete a message
+  app.delete<{ Params: WildcardParams }>(
+    "/messages/*",
+    async (request, reply) => {
+      const accessToken = await getAccessToken(getPassword(request));
+      const parsed = parseMessagePath(request.params["*"]);
+
+      if (parsed.type !== "message") {
+        return reply.status(404).send({ error: "Not found" });
+      }
+
+      await graphDelete(
+        `/me/messages/${encodeURIComponent(parsed.messageId)}`,
+        accessToken
+      );
+      return reply.status(204).send();
     }
   );
 }

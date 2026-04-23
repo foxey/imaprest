@@ -1,189 +1,356 @@
+import { hash } from "bcryptjs";
 import { buildApp } from "../../src/app";
-import * as imapLib from "../../src/lib/imap";
+import { parseMessagePath } from "../../src/routes/messages";
 
-jest.mock("../../src/lib/imap");
+jest.mock("../../src/auth/token-manager", () => ({
+  getAccessToken: jest.fn().mockResolvedValue("mock-access-token"),
+}));
 
-const CRED_HEADERS = {
-  "x-mail-user": "user@example.com",
-  "x-mail-password": "secret",
-  "x-imap-host": "imap.example.com",
-};
+const mockGraphGet = jest.fn();
+const mockGraphPost = jest.fn();
+const mockGraphPatch = jest.fn();
+const mockGraphDelete = jest.fn();
 
-const FAKE_MESSAGES = [
-  {
-    uid: 1,
-    envelope: {
-      from: [{ address: "alice@example.com" }],
-      subject: "Hello",
-      date: new Date("2024-01-15T10:00:00Z"),
-    },
-    flags: new Set<string>([]),
-  },
-  {
-    uid: 2,
-    envelope: {
-      from: [{ address: "bob@example.com" }],
-      subject: "Re: Hello",
-      date: new Date("2024-01-16T12:00:00Z"),
-    },
-    flags: new Set<string>(["\\Seen"]),
-  },
-];
+jest.mock("../../src/graph/client", () => ({
+  graphGet: (...args: unknown[]) => mockGraphGet(...args),
+  graphPost: (...args: unknown[]) => mockGraphPost(...args),
+  graphPatch: (...args: unknown[]) => mockGraphPatch(...args),
+  graphDelete: (...args: unknown[]) => mockGraphDelete(...args),
+}));
 
-describe("GET /mailboxes/:mailbox/messages", () => {
-  let mockClient: {
-    mailbox: { uidNext: number };
-    mailboxOpen: jest.Mock;
-    search: jest.Mock;
-    fetch: jest.Mock;
-  };
+const VALID_PASSWORD = "test-password";
+
+describe("parseMessagePath", () => {
+  it("returns message for a bare ID", () => {
+    expect(parseMessagePath("msg123")).toEqual({ type: "message", messageId: "msg123" });
+  });
+
+  it("returns message for a base64 ID with decoded slashes and equals", () => {
+    // Simulates what find-my-way delivers after decoding %2F → /
+    expect(parseMessagePath("ABC/DEF==")).toEqual({ type: "message", messageId: "ABC/DEF==" });
+  });
+
+  it("returns move for <id>/move", () => {
+    expect(parseMessagePath("msg123/move")).toEqual({ type: "move", messageId: "msg123" });
+  });
+
+  it("returns move for base64 ID with slash + /move", () => {
+    expect(parseMessagePath("ABC/DEF/move")).toEqual({ type: "move", messageId: "ABC/DEF" });
+  });
+
+  it("returns copy for <id>/copy", () => {
+    expect(parseMessagePath("msg123/copy")).toEqual({ type: "copy", messageId: "msg123" });
+  });
+
+  it("returns attachments for <id>/attachments", () => {
+    expect(parseMessagePath("msg123/attachments")).toEqual({
+      type: "attachments",
+      messageId: "msg123",
+    });
+  });
+
+  it("returns attachment for <id>/attachments/<attachId>", () => {
+    expect(parseMessagePath("msg123/attachments/att456")).toEqual({
+      type: "attachment",
+      messageId: "msg123",
+      attachmentId: "att456",
+    });
+  });
+
+  it("returns attachment when message ID contains decoded slashes", () => {
+    expect(parseMessagePath("ABC/DEF/attachments/att456")).toEqual({
+      type: "attachment",
+      messageId: "ABC/DEF",
+      attachmentId: "att456",
+    });
+  });
+});
+
+describe("Messages routes", () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeAll(async () => {
+    process.env.SERVICE_PASSWORD_HASH = await hash(VALID_PASSWORD, 10);
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  const authHeader = () => ({
+    Authorization: `Basic ${Buffer.from(`:${VALID_PASSWORD}`).toString("base64")}`,
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    async function* fakeMessages() {
-      for (const m of FAKE_MESSAGES) yield m;
-    }
-
-    mockClient = {
-      mailbox: { uidNext: 100 },
-      mailboxOpen: jest.fn().mockResolvedValue(undefined),
-      search: jest.fn().mockResolvedValue([1, 2]),
-      fetch: jest.fn().mockReturnValue(fakeMessages()),
-    };
-
-    (imapLib.createImapClient as jest.Mock).mockResolvedValue(mockClient);
-    (imapLib.disconnectImapClient as jest.Mock).mockResolvedValue(undefined);
   });
 
-  it("returns 401 when credential headers are missing", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages",
-    });
-    expect(response.statusCode).toBe(401);
-    await app.close();
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+
+  it("returns 401 without auth", async () => {
+    const res = await app.inject({ method: "GET", url: "/msgraphrest/messages/msg1" });
+    expect(res.statusCode).toBe(401);
   });
 
-  it("returns 200 with paginated response for no filters", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages",
-      headers: CRED_HEADERS,
+  // ── GET /messages/:id ───────────────────────────────────────────────────────
+
+  describe("GET /msgraphrest/messages/:id", () => {
+    it("returns a message for a simple ID", async () => {
+      mockGraphGet.mockResolvedValue({ id: "msg1", subject: "Hello" });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/messages/msg1",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toMatchObject({ id: "msg1" });
+      expect(mockGraphGet).toHaveBeenCalledWith("/me/messages/msg1", "mock-access-token");
     });
-    expect(response.statusCode).toBe(200);
-    const body = JSON.parse(response.body);
-    expect(body).toHaveProperty("messages");
-    expect(body).toHaveProperty("nextCursor");
-    expect(body).toHaveProperty("hasMore");
-    expect(Array.isArray(body.messages)).toBe(true);
-    expect(body.messages).toHaveLength(2);
-    expect(body.messages[0]).toMatchObject({
-      uid: 1,
-      from: "alice@example.com",
-      subject: "Hello",
-      seen: false,
+
+    it("handles base64 message ID with encoded equals signs", async () => {
+      // IDs like AAMkAGI2...== — the == is valid in a path segment
+      const msgId = "AAMkAGI2==";
+      mockGraphGet.mockResolvedValue({ id: msgId });
+      const res = await app.inject({
+        method: "GET",
+        url: `/msgraphrest/messages/${msgId}`,
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphGet).toHaveBeenCalledWith(
+        `/me/messages/${encodeURIComponent(msgId)}`,
+        "mock-access-token"
+      );
     });
-    expect(body.messages[1]).toMatchObject({
-      uid: 2,
-      from: "bob@example.com",
-      subject: "Re: Hello",
-      seen: true,
+
+    it("handles base64 message ID with encoded slash (%2F)", async () => {
+      // Microsoft Graph IDs can contain "/" — clients must URL-encode it as %2F.
+      // find-my-way decodes %2F before routing, breaking named params; wildcard handles this.
+      const rawId = "AAMkAGI2/base64==";
+      const urlId = encodeURIComponent(rawId); // AAMkAGI2%2Fbase64%3D%3D
+      mockGraphGet.mockResolvedValue({ id: rawId });
+      const res = await app.inject({
+        method: "GET",
+        url: `/msgraphrest/messages/${urlId}`,
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      // The decoded ID is re-encoded when calling Graph
+      expect(mockGraphGet).toHaveBeenCalledWith(
+        `/me/messages/${encodeURIComponent(rawId)}`,
+        "mock-access-token"
+      );
     });
-    await app.close();
   });
 
-  it("passes unseen=true as { seen: false } merged with UID range to search", async () => {
-    const app = await buildApp();
-    await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages?unseen=true",
-      headers: CRED_HEADERS,
+  // ── GET /messages/search ────────────────────────────────────────────────────
+
+  describe("GET /msgraphrest/messages/search", () => {
+    it("searches messages with the given query", async () => {
+      mockGraphGet.mockResolvedValue({ value: [] });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/messages/search?q=invoice",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      const callArg = mockGraphGet.mock.calls[0][0] as string;
+      expect(callArg).toContain("invoice");
+      expect(callArg).toContain("%24top=25");
     });
-    expect(mockClient.search).toHaveBeenCalledWith(
-      expect.objectContaining({ seen: false }),
-      { uid: true }
-    );
-    await app.close();
   });
 
-  it("passes from filter to search criteria merged with UID range", async () => {
-    const app = await buildApp();
-    await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages?from=alice%40example.com",
-      headers: CRED_HEADERS,
+  // ── GET /messages/:id/attachments ───────────────────────────────────────────
+
+  describe("GET /msgraphrest/messages/:id/attachments", () => {
+    it("lists attachments for a message", async () => {
+      mockGraphGet.mockResolvedValue({ value: [{ id: "att1" }] });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/messages/msg1/attachments",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphGet).toHaveBeenCalledWith(
+        "/me/messages/msg1/attachments",
+        "mock-access-token"
+      );
     });
-    expect(mockClient.search).toHaveBeenCalledWith(
-      expect.objectContaining({ from: "alice@example.com" }),
-      { uid: true }
-    );
-    await app.close();
+
+    it("handles base64 ID with encoded slash in attachments route", async () => {
+      const rawId = "ABC/DEF==";
+      const urlId = encodeURIComponent(rawId);
+      mockGraphGet.mockResolvedValue({ value: [] });
+      const res = await app.inject({
+        method: "GET",
+        url: `/msgraphrest/messages/${urlId}/attachments`,
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphGet).toHaveBeenCalledWith(
+        `/me/messages/${encodeURIComponent(rawId)}/attachments`,
+        "mock-access-token"
+      );
+    });
   });
 
-  it("returns 400 for an invalid since date", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages?since=not-a-date",
-      headers: CRED_HEADERS,
+  // ── GET /messages/:id/attachments/:attachId ─────────────────────────────────
+
+  describe("GET /msgraphrest/messages/:id/attachments/:attachId", () => {
+    it("returns a specific attachment", async () => {
+      mockGraphGet.mockResolvedValue({ id: "att1", name: "file.pdf" });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/messages/msg1/attachments/att1",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphGet).toHaveBeenCalledWith(
+        "/me/messages/msg1/attachments/att1",
+        "mock-access-token"
+      );
     });
-    expect(response.statusCode).toBe(400);
-    await app.close();
   });
 
-  it("returns empty paginated response when search finds no messages", async () => {
-    mockClient.search.mockResolvedValue([]);
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages",
-      headers: CRED_HEADERS,
+  // ── POST /messages/:id/move ─────────────────────────────────────────────────
+
+  describe("POST /msgraphrest/messages/:id/move", () => {
+    it("moves a message to another folder", async () => {
+      mockGraphPost.mockResolvedValue({ id: "msg1" });
+      const res = await app.inject({
+        method: "POST",
+        url: "/msgraphrest/messages/msg1/move",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        payload: JSON.stringify({ destinationId: "inbox" }),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphPost).toHaveBeenCalledWith(
+        "/me/messages/msg1/move",
+        { destinationId: "inbox" },
+        "mock-access-token"
+      );
     });
-    expect(response.statusCode).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({
-      messages: [],
-      nextCursor: null,
-      hasMore: false,
-    });
-    await app.close();
   });
 
-  it("returns 400 for invalid cursor", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages?cursor=abc",
-      headers: CRED_HEADERS,
+  // ── POST /messages/:id/copy ─────────────────────────────────────────────────
+
+  describe("POST /msgraphrest/messages/:id/copy", () => {
+    it("copies a message to another folder", async () => {
+      mockGraphPost.mockResolvedValue({ id: "msg1-copy" });
+      const res = await app.inject({
+        method: "POST",
+        url: "/msgraphrest/messages/msg1/copy",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        payload: JSON.stringify({ destinationId: "archive" }),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphPost).toHaveBeenCalledWith(
+        "/me/messages/msg1/copy",
+        { destinationId: "archive" },
+        "mock-access-token"
+      );
     });
-    expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body).error).toMatch(/cursor/i);
-    await app.close();
   });
 
-  it("returns 400 for invalid limit", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages?limit=-5",
-      headers: CRED_HEADERS,
+  // ── PATCH /messages/:id ─────────────────────────────────────────────────────
+
+  describe("PATCH /msgraphrest/messages/:id", () => {
+    it("marks a message as read", async () => {
+      mockGraphPatch.mockResolvedValue({ id: "msg1", isRead: true });
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/msgraphrest/messages/msg1",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        payload: JSON.stringify({ isRead: true }),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphPatch).toHaveBeenCalledWith(
+        "/me/messages/msg1",
+        { isRead: true },
+        "mock-access-token"
+      );
     });
-    expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body).error).toMatch(/limit/i);
-    await app.close();
+
+    it("handles base64 ID with encoded slash in PATCH (the original bug)", async () => {
+      // This is the core regression test: before the wildcard fix, find-my-way would
+      // decode %2F → "/" and the named param :messageId would not match, returning 404.
+      const rawId = "AAMkAGI2/slashInId==";
+      const urlId = encodeURIComponent(rawId);
+      mockGraphPatch.mockResolvedValue({ id: rawId, isRead: true });
+      const res = await app.inject({
+        method: "PATCH",
+        url: `/msgraphrest/messages/${urlId}`,
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        payload: JSON.stringify({ isRead: true }),
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockGraphPatch).toHaveBeenCalledWith(
+        `/me/messages/${encodeURIComponent(rawId)}`,
+        { isRead: true },
+        "mock-access-token"
+      );
+    });
   });
 
-  it("returns 400 when limit exceeds 100", async () => {
-    const app = await buildApp();
-    const response = await app.inject({
-      method: "GET",
-      url: "/imaprest/mailboxes/INBOX/messages?limit=200",
-      headers: CRED_HEADERS,
+  // ── DELETE /messages/:id ────────────────────────────────────────────────────
+
+  describe("DELETE /msgraphrest/messages/:id", () => {
+    it("deletes a message and returns 204", async () => {
+      mockGraphDelete.mockResolvedValue(undefined);
+      const res = await app.inject({
+        method: "DELETE",
+        url: "/msgraphrest/messages/msg1",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(204);
+      expect(mockGraphDelete).toHaveBeenCalledWith("/me/messages/msg1", "mock-access-token");
     });
-    expect(response.statusCode).toBe(400);
-    expect(JSON.parse(response.body).error).toMatch(/limit/i);
-    await app.close();
+  });
+
+  // ── GET /mailboxes/:folderId/messages ───────────────────────────────────────
+
+  describe("GET /msgraphrest/mailboxes/:folderId/messages", () => {
+    it("lists messages in a folder with default top=25", async () => {
+      mockGraphGet.mockResolvedValue({ value: [] });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/mailboxes/inbox/messages",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      const callArg = mockGraphGet.mock.calls[0][0] as string;
+      expect(callArg).toContain("/me/mailFolders/inbox/messages");
+      expect(callArg).toContain("%24top=25");
+    });
+
+    it("forwards OData query params", async () => {
+      mockGraphGet.mockResolvedValue({ value: [] });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/mailboxes/inbox/messages?$top=10&$filter=isRead+eq+false",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      const callArg = mockGraphGet.mock.calls[0][0] as string;
+      expect(callArg).toContain("isRead");
+    });
+  });
+
+  // ── GET /conversations/:id/messages ─────────────────────────────────────────
+
+  describe("GET /msgraphrest/conversations/:conversationId/messages", () => {
+    it("fetches all messages in a conversation", async () => {
+      mockGraphGet.mockResolvedValue({ value: [] });
+      const res = await app.inject({
+        method: "GET",
+        url: "/msgraphrest/conversations/conv123/messages",
+        headers: authHeader(),
+      });
+      expect(res.statusCode).toBe(200);
+      const callArg = mockGraphGet.mock.calls[0][0] as string;
+      expect(callArg).toContain("conversationId");
+      expect(callArg).toContain("conv123");
+    });
   });
 });
